@@ -1,0 +1,6 @@
+TransactionID,Date,Amount,Type,Merchant,Category,Channel,Description
+TXN001,22-08-2026,799,Debit,SWIGGY,Food,UPI,UPI payment to Swiggy
+TXN002,22-08-2026,1299,Debit,AMAZON,Shopping,UPI,UPI payment to Amazon
+TXN003,21-08-2026,50000,Credit,Employer,Salary,NEFT,Monthly salary
+TXN004,20-08-2026,1500,Debit,,Cash Withdrawal,ATM,ATM cash withdrawal
+TXN005,19-08-2026,8000,Debit,,EMI,NACH,Monthly loan EMI
