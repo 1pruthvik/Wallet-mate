@@ -2,6 +2,7 @@ import re
 from datetime import datetime
 
 from parsing.transaction_model import Transaction
+from parsing.merchant_normalizer import normalize_merchant
 
 
 def parse_sms(sms: str) -> Transaction | None:
@@ -126,6 +127,9 @@ def parse_sms(sms: str) -> Transaction | None:
             merchant = merchant_match.group(1).strip()
 
             break
+
+    # Normalize merchant name
+    merchant = normalize_merchant(merchant)
 
     # --------------------------------------------------
     # 6. Special handling for ATM
@@ -281,7 +285,10 @@ def parse_sms(sms: str) -> Transaction | None:
     if merchant is not None:
         confidence += 0.05
 
-    confidence = min(confidence, 1.0)
+    confidence = round(
+        min(confidence, 1.0),
+        2
+    )
 
     # --------------------------------------------------
     # 14. Create Transaction

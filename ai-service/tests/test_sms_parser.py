@@ -53,3 +53,23 @@ def test_imps_shopping():
     assert transaction.channel == "IMPS"
     assert transaction.merchant == "AMAZON"
     assert transaction.category == "Shopping"
+def test_merchant_normalization_swiggy():
+
+    sms = "Rs.799 debited via UPI to Swiggy India Pvt Ltd on 22-08-2026"
+
+    transaction = parse_sms(sms)
+
+    assert transaction is not None
+    assert transaction.merchant == "SWIGGY"
+    assert transaction.category == "Food"
+
+
+def test_merchant_normalization_amazon():
+
+    sms = "Rs.1299 debited via UPI to Amazon India on 22-08-2026"
+
+    transaction = parse_sms(sms)
+
+    assert transaction is not None
+    assert transaction.merchant == "AMAZON"
+    assert transaction.category == "Shopping"    

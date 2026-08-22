@@ -2,7 +2,7 @@ import csv
 from datetime import datetime
 
 from parsing.transaction_model import Transaction
-
+from parsing.merchant_normalizer import normalize_merchant
 
 def parse_csv(file_path: str) -> list[Transaction]:
 
@@ -26,6 +26,8 @@ def parse_csv(file_path: str) -> list[Transaction]:
             )
 
             merchant = row.get("Merchant", "").strip() or None
+
+            merchant = normalize_merchant(merchant)
 
             category = row.get(
                 "Category",
