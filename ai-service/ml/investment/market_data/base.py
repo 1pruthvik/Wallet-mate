@@ -20,7 +20,8 @@ class MarketDataProvider(ABC):
         self,
         symbol: str,
         start_date: datetime,
-        end_date: datetime
+        end_date: datetime,
+        interval: str = "1d"
     ) -> list[HistoricalPrice]:
         pass
 

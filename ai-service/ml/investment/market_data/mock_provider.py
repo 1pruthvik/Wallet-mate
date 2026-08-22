@@ -68,7 +68,8 @@ class MockMarketDataProvider(MarketDataProvider):
         self,
         symbol: str,
         start_date: datetime,
-        end_date: datetime
+        end_date: datetime,
+        interval: str = "1d"
     ) -> list[HistoricalPrice]:
         clean_symbol = symbol.upper().strip()
         base_price = self.DEFAULT_BASE_PRICES.get(clean_symbol, 1000.0)

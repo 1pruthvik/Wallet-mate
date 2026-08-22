@@ -19,8 +19,9 @@ class YFinanceMarketDataProvider(MarketDataProvider):
     Falls back gracefully to MockMarketDataProvider if offline or network unavailable.
     """
 
-    def __init__(self, cache_ttl_seconds: int = 3600):
+    def __init__(self, cache_ttl_seconds: int = 3600, raise_on_error: bool = False):
         self.cache_ttl_seconds = cache_ttl_seconds
+        self.raise_on_error = raise_on_error
         self._price_cache: dict[str, tuple[datetime, list[HistoricalPrice]]] = {}
         self._snapshot_cache: dict[str, tuple[datetime, MarketSnapshot]] = {}
         self._fundamental_cache: dict[str, tuple[datetime, FundamentalSnapshot]] = {}
@@ -41,9 +42,10 @@ class YFinanceMarketDataProvider(MarketDataProvider):
         self,
         symbol: str,
         start_date: datetime,
-        end_date: datetime
+        end_date: datetime,
+        interval: str = "1d"
     ) -> list[HistoricalPrice]:
-        cache_key = f"{symbol.upper()}_{start_date.date()}_{end_date.date()}"
+        cache_key = f"{symbol.upper()}_{start_date.date()}_{end_date.date()}_{interval}"
         if cache_key in self._price_cache:
             cached_time, cached_data = self._price_cache[cache_key]
             if self._is_cache_valid(cached_time):
@@ -53,11 +55,13 @@ class YFinanceMarketDataProvider(MarketDataProvider):
         try:
             import yfinance as yf
             ticker = yf.Ticker(ticker_symbol)
-            df = ticker.history(start=start_date, end=end_date)
+            df = ticker.history(start=start_date, end=end_date, interval=interval)
 
             if df.empty:
+                if self.raise_on_error:
+                    raise RuntimeError(f"Real market data provider returned empty DataFrame for ticker '{ticker_symbol}'.")
                 logger.warning(f"No yfinance data returned for {symbol}, falling back to mock provider.")
-                return self._fallback_provider.get_historical_prices(symbol, start_date, end_date)
+                return self._fallback_provider.get_historical_prices(symbol, start_date, end_date, interval)
 
             prices = []
             for idx, row in df.iterrows():
@@ -76,8 +80,10 @@ class YFinanceMarketDataProvider(MarketDataProvider):
             self._price_cache[cache_key] = (datetime.now(), prices)
             return prices
         except Exception as e:
+            if self.raise_on_error:
+                raise RuntimeError(f"Real market data provider failed to fetch '{ticker_symbol}': {str(e)}") from e
             logger.warning(f"Failed to fetch yfinance data for {symbol} ({e}), using mock provider.")
-            return self._fallback_provider.get_historical_prices(symbol, start_date, end_date)
+            return self._fallback_provider.get_historical_prices(symbol, start_date, end_date, interval)
 
     def get_latest_price(self, symbol: str) -> MarketSnapshot:
         cache_key = symbol.upper()

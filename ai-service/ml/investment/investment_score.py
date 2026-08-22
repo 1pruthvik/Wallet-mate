@@ -52,13 +52,24 @@ def calculate_investment_score(
     else:
         sentiment_score = 50.0
 
+    # 6. Model Agreement Adjustment (if present from Ensemble)
+    agreement_score = 50.0
+    if hasattr(prediction, "model_agreement") and prediction.model_agreement:
+        if prediction.model_agreement == "HIGH":
+            agreement_score = 100.0
+        elif prediction.model_agreement == "MEDIUM":
+            agreement_score = 65.0
+        elif prediction.model_agreement == "LOW":
+            agreement_score = 20.0
+
     # Weighted Overall Score
     overall_score = (
         0.30 * return_score
         + 0.20 * risk_score_component
-        + 0.20 * technical_score
-        + 0.20 * fundamental_score
+        + 0.15 * technical_score
+        + 0.15 * fundamental_score
         + 0.10 * sentiment_score
+        + 0.10 * agreement_score
     )
 
     final_score = int(np.clip(round(overall_score), 0, 100))

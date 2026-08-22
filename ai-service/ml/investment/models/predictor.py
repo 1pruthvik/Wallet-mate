@@ -10,9 +10,12 @@ from ml.investment.market_data import MarketDataProvider, MockMarketDataProvider
 from ml.investment.features import extract_market_features, feature_dict_to_vector
 
 
-class StockMarketPredictor:
+from ml.investment.models.base_predictor import BaseStockPredictor
+
+
+class StockMarketPredictor(BaseStockPredictor):
     """
-    ML Stock Market Predictor.
+    ML Stock Market Predictor (Gradient Boosting Baseline).
     Predicts probabilistic returns, direction, uncertainty range, and confidence.
     Never hardcodes predictions or guarantees returns.
     """
@@ -90,11 +93,37 @@ class StockMarketPredictor:
 
         return np.array(X), np.array(y_return), np.array(y_direction)
 
-    def train(self):
+    def train(self, historical_prices: Optional[list] = None, horizon_days: int = 20):
         """
         Train ML regressor and classifier models using time-ordered dataset.
         """
-        X, y_ret, y_dir = self._generate_synthetic_training_dataset()
+        if historical_prices and len(historical_prices) > 30:
+            X_list = []
+            y_ret_list = []
+            y_dir_list = []
+
+            for i in range(30, len(historical_prices) - horizon_days):
+                hist_slice = historical_prices[:i]
+                future_slice = historical_prices[i:i + horizon_days]
+
+                feats = extract_market_features(hist_slice, is_historical_training=True)
+                vec = feature_dict_to_vector(feats)
+
+                act_ret = (future_slice[-1].close - hist_slice[-1].close) / hist_slice[-1].close
+                dir_label = "positive" if act_ret > 0.01 else ("negative" if act_ret < -0.01 else "neutral")
+
+                X_list.append(vec)
+                y_ret_list.append(act_ret)
+                y_dir_list.append(dir_label)
+
+            if X_list:
+                X = np.array(X_list)
+                y_ret = np.array(y_ret_list)
+                y_dir = np.array(y_dir_list)
+            else:
+                X, y_ret, y_dir = self._generate_synthetic_training_dataset()
+        else:
+            X, y_ret, y_dir = self._generate_synthetic_training_dataset()
 
         # Time-ordered split (no shuffle to prevent data leakage)
         split_idx = int(len(X) * 0.8)
@@ -157,6 +186,10 @@ class StockMarketPredictor:
         raw_risk = (volatility * 1500) + (debt * 20)
         risk_score = int(np.clip(raw_risk, 15, 90))
 
+        current_price = historical_prices[-1].close if historical_prices else None
+        expected_price = round(current_price * (1.0 + pred_ret), 2) if current_price else None
+        data_ts = historical_prices[-1].date if historical_prices else datetime.now()
+
         return PredictionResult(
             symbol=clean_symbol,
             horizon_days=horizon_days,
@@ -165,6 +198,10 @@ class StockMarketPredictor:
             risk_score=risk_score,
             confidence=round(confidence, 2),
             direction=predicted_direction,
+            current_price=current_price,
+            expected_price=expected_price,
+            model_name="GradientBoostingRegressor",
+            data_timestamp=data_ts,
         )
 
     def save_model(self, filepath: str):
@@ -180,3 +217,8 @@ class StockMarketPredictor:
             self.regressor = data["regressor"]
             self.classifier = data["classifier"]
             self.trained = data.get("trained", True)
+
+
+# Alias for backward compatibility and explicit naming
+GradientBoostingStockPredictor = StockMarketPredictor
+

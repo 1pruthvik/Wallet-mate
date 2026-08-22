@@ -85,6 +85,13 @@ class PredictionResult(BaseModel):
     risk_score: int = Field(ge=0, le=100)
     confidence: float = Field(ge=0.0, le=1.0)
     direction: Literal["positive", "neutral", "negative"]
+    current_price: Optional[float] = None
+    expected_price: Optional[float] = None
+    model_name: Optional[str] = "GradientBoostingRegressor"
+    data_timestamp: Optional[datetime] = None
+    model_agreement: Optional[str] = "SINGLE_MODEL"
+    model_predictions: Optional[dict[str, float]] = None
+    selected_model: Optional[str] = "ensemble"
 
 
 class ScoreComponents(BaseModel):
@@ -139,6 +146,7 @@ class PortfolioAllocation(BaseModel):
 class PredictRequest(BaseModel):
     symbols: list[str] = Field(default_factory=lambda: ["RELIANCE", "TCS", "INFY"])
     horizon_days: int = 60
+    model_name: Optional[str] = "ensemble"
 
 
 class AnalyzeInvestmentRequest(BaseModel):
@@ -146,12 +154,14 @@ class AnalyzeInvestmentRequest(BaseModel):
     transactions: list = Field(default_factory=list)
     budgets: dict[str, float] = Field(default_factory=dict)
     investable_amount: Optional[float] = None
+    model_name: Optional[str] = "ensemble"
 
 
 class PortfolioRequest(BaseModel):
     symbols: list[str] = Field(default_factory=lambda: ["RELIANCE", "TCS", "INFY"])
     investable_amount: float = 10000.0
     user_profile: Optional[UserInvestmentProfile] = None
+    model_name: Optional[str] = "ensemble"
 
 
 class AIExplainRequest(BaseModel):
@@ -172,3 +182,60 @@ class AIChatResponse(BaseModel):
         "FinMitra Investment Intelligence provides probabilistic research insights. "
         "It does not guarantee future financial returns or execute automatic trades."
     )
+
+
+# ==================================================
+# 5. REAL-TIME MARKET DATA & LIVE INFERENCE SCHEMAS
+# ==================================================
+
+class MarketQuote(BaseModel):
+    symbol: str
+    exchange: str = "NSE"
+    last_price: float
+    open: float
+    high: float
+    low: float
+    previous_close: float
+    volume: float
+    change: float = 0.0
+    change_percent: float = 0.0
+    data_source: str = "YFINANCE"
+    data_quality: Literal["LIVE", "RECENT", "STALE", "HISTORICAL", "UNAVAILABLE"] = "LIVE"
+    data_timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
+    received_at: str = Field(default_factory=lambda: datetime.now().isoformat())
+
+
+class MarketStatusResponse(BaseModel):
+    provider: str = "yfinance"
+    connection: Literal["CONNECTED", "DISCONNECTED"] = "CONNECTED"
+    market_status: Literal["OPEN", "CLOSED", "PRE_OPEN", "UNKNOWN"] = "OPEN"
+    last_update: str = Field(default_factory=lambda: datetime.now().isoformat())
+    data_quality: Literal["LIVE", "RECENT", "STALE", "UNAVAILABLE"] = "LIVE"
+
+
+class ModelStatusResponse(BaseModel):
+    loaded_model: str = "ensemble"
+    model_version: str = "v1.0.0"
+    training_start: Optional[str] = None
+    training_end: Optional[str] = None
+    training_rows: int = 0
+    validation_rows: int = 0
+    test_rows: int = 0
+    validation_metrics: dict = Field(default_factory=dict)
+    test_metrics: dict = Field(default_factory=dict)
+    last_trained: Optional[str] = None
+
+
+class LivePredictRequest(BaseModel):
+    symbol: str = "ICICIBANK.NS"
+    horizon_days: int = 20
+    model_name: Optional[str] = "ensemble"
+
+
+class LivePredictResponse(BaseModel):
+    symbol: str
+    prediction: PredictionResult
+    live_quote: Optional[MarketQuote] = None
+    data_quality: str = "LIVE"
+    gemini_explanation: Optional[dict | str] = None
+

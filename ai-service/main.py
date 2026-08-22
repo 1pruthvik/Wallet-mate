@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
 from fastapi import FastAPI, HTTPException
@@ -19,15 +20,25 @@ from ml.investment.schemas import (
     InvestmentCandidate,
     PortfolioAllocation,
     UserInvestmentProfile,
+    HistoricalPrice,
+    MarketQuote,
+    MarketStatusResponse,
+    ModelStatusResponse,
+    LivePredictRequest,
+    LivePredictResponse,
 )
-from ml.investment.market_data import MockMarketDataProvider
+from ml.investment.market_data import MockMarketDataProvider, YFinanceMarketDataProvider, MarketDataService
 from ml.investment.models.predictor import StockMarketPredictor
+from ml.investment.models.foundation_predictor import FinancialFoundationPredictor
+from ml.investment.models.ensemble_predictor import EnsembleStockPredictor
+from ml.investment.model_registry import ModelRegistry
 from ml.investment.investment_score import calculate_investment_score
 from ml.investment.user_profile import build_user_investment_profile
 from ml.investment.personalization import evaluate_personalization
 from ml.investment.portfolio import generate_portfolio_allocation
 from ml.investment.sentiment import SentimentProvider
 from ai.explanation_service import AIExplanationService
+from fastapi.responses import FileResponse
 
 # RAG Intelligence Imports
 from rag.models import (
@@ -41,13 +52,32 @@ from rag.service import RAGService
 
 
 # Global Service Singletons
-market_provider = MockMarketDataProvider()
+market_service = MarketDataService()
+market_provider = market_service.provider
+model_registry = ModelRegistry()
+
 stock_predictor = StockMarketPredictor(provider=market_provider)
 stock_predictor.train()
+foundation_predictor = FinancialFoundationPredictor(provider=market_provider)
+ensemble_predictor = EnsembleStockPredictor(
+    gradient_predictor=stock_predictor,
+    foundation_predictor=foundation_predictor,
+    provider=market_provider
+)
 sentiment_provider = SentimentProvider()
 
 rag_service = RAGService()
 ai_service = AIExplanationService()
+
+
+def get_predictor(model_name: Optional[str] = "ensemble"):
+    clean = (model_name or "ensemble").lower().strip()
+    if clean in ["gradient_boosting", "gradientboosting", "gb"]:
+        return stock_predictor
+    elif clean in ["foundation", "foundation_model", "chronos"]:
+        return foundation_predictor
+    else:
+        return ensemble_predictor
 
 
 from contextlib import asynccontextmanager
@@ -156,18 +186,48 @@ def analyze_transactions(request: AnalyzeRequest):
 # INVESTMENT INTELLIGENCE ENDPOINTS (PRESERVED)
 # ==================================================
 
+@app.get("/investment/models")
+def list_investment_models():
+    """
+    Return list of available forecasting models, capability status, and versions.
+    """
+    return {
+        "models": [
+            {
+                "name": "gradient_boosting",
+                "available": True,
+                "version": "1.0.0",
+                "type": "Scikit-Learn GradientBoostingRegressor + RandomForestClassifier"
+            },
+            {
+                "name": "foundation",
+                "available": foundation_predictor.is_available,
+                "version": "1.0.0 (Chronos-Bolt)",
+                "type": "Zero-shot Time-Series Foundation Model"
+            },
+            {
+                "name": "ensemble",
+                "available": True,
+                "version": "1.0.0",
+                "type": "Weighted Ensemble (GradientBoosting + Foundation Model)"
+            }
+        ]
+    }
+
+
 @app.post("/investment/predict", response_model=dict[str, list[PredictionResult]])
 def predict_stocks(request: PredictRequest):
     """
-    Predict risk-aware, probabilistic stock returns across specified symbols and horizon.
+    Predict risk-aware, probabilistic stock returns across specified symbols, horizon, and selected model.
     """
     if not request.symbols:
         raise HTTPException(status_code=400, detail="Symbols list cannot be empty")
 
+    predictor = get_predictor(request.model_name)
     results = []
     for symbol in request.symbols:
         try:
-            pred = stock_predictor.predict(symbol, horizon_days=request.horizon_days)
+            pred = predictor.predict(symbol, horizon_days=request.horizon_days)
             results.append(pred)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Failed to predict symbol {symbol}: {str(e)}")
@@ -185,9 +245,10 @@ def analyze_investments(request: AnalyzeInvestmentRequest):
         budgets=request.budgets
     )
 
+    predictor = get_predictor(request.model_name)
     candidates = []
     for symbol in request.symbols:
-        pred = stock_predictor.predict(symbol)
+        pred = predictor.predict(symbol)
         fund = market_provider.get_fundamentals(symbol)
         sentiment = sentiment_provider.get_sentiment(symbol)
         score = calculate_investment_score(prediction=pred, fundamentals=fund, sentiment=sentiment)
@@ -239,10 +300,11 @@ def generate_portfolio_endpoint(request: PortfolioRequest):
     Generate a hypothetical, risk-aware portfolio asset allocation.
     """
     user_prof = request.user_profile or UserInvestmentProfile()
+    predictor = get_predictor(request.model_name)
     candidates = []
 
     for symbol in request.symbols:
-        pred = stock_predictor.predict(symbol)
+        pred = predictor.predict(symbol)
         fund = market_provider.get_fundamentals(symbol)
         sentiment = sentiment_provider.get_sentiment(symbol)
         score = calculate_investment_score(prediction=pred, fundamentals=fund, sentiment=sentiment)
@@ -339,3 +401,109 @@ def ai_chat_endpoint(request: AIChatRequest):
     )
 
     return res
+
+
+# ==================================================
+# GROWW OAUTH AUTHENTICATION ENDPOINTS
+# ==================================================
+
+@app.get("/dashboard")
+@app.get("/")
+def dashboard_endpoint():
+    """Serve the interactive glassmorphic Real-Time Market & AI Stock Prediction Dashboard UI."""
+    static_html = Path(__file__).parent / "static" / "index.html"
+    if static_html.exists():
+        return FileResponse(static_html)
+    return {"message": "FinMitra AI Service Running", "dashboard": "static/index.html not found"}
+
+
+# ==================================================
+# REAL-TIME MARKET DATA & LIVE INFERENCE ENDPOINTS
+# ==================================================
+
+@app.get("/investment/market-status", response_model=MarketStatusResponse)
+def investment_market_status_endpoint():
+    """
+    Returns active market data provider connection state, market status (OPEN/CLOSED), and data quality headers.
+    """
+    return market_service.get_market_status()
+
+
+@app.get("/investment/model-status", response_model=ModelStatusResponse)
+def investment_model_status_endpoint():
+    """
+    Returns active production ML model status, version, training row counts, and validation metrics from ModelRegistry.
+    """
+    return model_registry.get_model_status()
+
+
+@app.get("/investment/quote/{symbol}", response_model=MarketQuote)
+def market_quote_endpoint(symbol: str):
+    """
+    Fetch normalized real-time market quote for specified symbol with exact timestamp and data quality tracking.
+    """
+    quote = market_service.fetch_live_quote(symbol=symbol)
+    if not quote:
+        raise HTTPException(
+            status_code=503,
+            detail={"status": "LIVE_DATA_UNAVAILABLE", "message": f"Unable to fetch real-time quote for symbol '{symbol}'."}
+        )
+    return quote
+
+
+@app.post("/investment/live-predict", response_model=LivePredictResponse)
+def live_predict_endpoint(request: LivePredictRequest):
+    """
+    Executes real-time stock inference using MarketDataService live quote + historical dataset + Ensemble (GradientBoosting + Chronos-Bolt).
+    Strictly separates inference from training (uses pre-trained model from ModelRegistry).
+    """
+    live_quote = market_service.fetch_live_quote(symbol=request.symbol)
+
+    if not live_quote or live_quote.data_quality in ["STALE", "UNAVAILABLE"]:
+        # Fallback check or error
+        if not live_quote:
+            raise HTTPException(
+                status_code=400,
+                detail={"status": "LIVE_DATA_UNAVAILABLE", "message": f"Real-time data unavailable for symbol '{request.symbol}'."}
+            )
+
+    predictor = get_predictor(request.model_name)
+
+    # Historical prices base dataset
+    start_date = datetime.now() - timedelta(days=365)
+    hist_prices = market_provider.get_historical_prices(request.symbol, start_date, datetime.now())
+
+    # Update latest real-time quote point if available
+    if live_quote and len(hist_prices) > 0:
+        latest_hp = HistoricalPrice(
+            symbol=request.symbol.upper(),
+            date=datetime.now(),
+            open=live_quote.open,
+            high=live_quote.high,
+            low=live_quote.low,
+            close=live_quote.last_price,
+            volume=live_quote.volume
+        )
+        hist_prices.append(latest_hp)
+
+    # Pure inference call
+    pred_res = predictor.predict(
+        symbol=request.symbol,
+        horizon_days=request.horizon_days,
+        historical_prices=hist_prices
+    )
+
+    # Generate Gemini RAG-grounded natural language explanation
+    rag_res = rag_service.query(RAGQueryRequest(query=f"Analysis for {request.symbol}", symbol=request.symbol, top_k=2))
+    gemini_explain = ai_service.explain_investment_candidate(
+        market_prediction=pred_res.model_dump(),
+        rag_chunks=rag_res.chunks
+    )
+
+    return LivePredictResponse(
+        symbol=request.symbol.upper(),
+        prediction=pred_res,
+        live_quote=live_quote,
+        data_quality=live_quote.data_quality if live_quote else "UNAVAILABLE",
+        gemini_explanation=gemini_explain
+    )

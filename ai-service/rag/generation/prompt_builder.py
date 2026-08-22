@@ -1,7 +1,26 @@
 import json
-from typing import Optional
+from datetime import date, datetime
+from typing import Optional, Any
 
 from rag.models import DocumentChunk, SourceCitation
+
+
+def safe_json_dumps(data: Optional[dict[str, Any]], indent: int = 2) -> str:
+    """
+    Safely serialize dictionary context to JSON for prompt construction.
+    Converts datetime/date objects to ISO-8601 strings and handles numpy or non-standard types.
+    """
+    if not data:
+        return "{}"
+
+    def default_serializer(obj: Any) -> Any:
+        if isinstance(obj, (datetime, date)) or hasattr(obj, "isoformat"):
+            return obj.isoformat()
+        if hasattr(obj, "item"):
+            return obj.item()
+        return str(obj)
+
+    return json.dumps(data, indent=indent, default=default_serializer)
 
 
 def build_rag_grounded_prompt(
@@ -53,10 +72,10 @@ STRICT GROUNDING & ANTI-HALLUCINATION RULES:
 
 ---
 USER FINANCIAL SUMMARY:
-{json.dumps(user_context or {}, indent=2)}
+{safe_json_dumps(user_context, indent=2)}
 
 ML PREDICTION / SCORING:
-{json.dumps(ml_prediction or {}, indent=2)}
+{safe_json_dumps(ml_prediction, indent=2)}
 
 RETRIEVED KNOWLEDGE BASE:
 {docs_text}
@@ -65,3 +84,4 @@ USER INQUIRY:
 {query}
 """
     return prompt, citations
+
