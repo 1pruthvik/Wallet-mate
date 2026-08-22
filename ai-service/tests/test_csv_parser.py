@@ -1,9 +1,10 @@
+from pathlib import Path
 from parsing.csv_parser import parse_csv
 
 
 def test_csv_parser():
-
-    transactions = parse_csv("sample_transactions.csv")
+    sample_file = Path(__file__).resolve().parent.parent / "sample_transactions.csv"
+    transactions = parse_csv(str(sample_file))
 
     assert len(transactions) == 5
 

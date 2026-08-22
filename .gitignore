@@ -9,9 +9,18 @@ venv/
 # Pytest
 .pytest_cache/
 
-# Environment variables
+# Runtime RAG vectorstore & database cache
+data/
+data/*
+
+# Environment variables & secrets
 .env
 .env.*
+!.env.example
+
+# Model checkpoints & large binary artifacts
+*.pkl
+*.joblib
 
 # IDE
 .vscode/
