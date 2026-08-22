@@ -29,6 +29,22 @@ class StockMarketPredictor(BaseStockPredictor):
             n_estimators=100, max_depth=4, random_state=42
         )
         self.trained = False
+        self.model_name = "GradientBoostingPredictor"
+        self.model_version = "1.0.0"
+        self.status = "AVAILABLE"
+        self.device = "cpu"
+        self.is_available = True
+        self.load_error = None
+
+    def get_model_metadata(self) -> dict:
+        return {
+            "model_name": self.model_name,
+            "model_version": self.model_version,
+            "status": self.status,
+            "device": self.device,
+            "is_available": self.is_available,
+            "load_error": self.load_error
+        }
 
     def _generate_synthetic_training_dataset(self, num_samples: int = 150):
         """
@@ -221,4 +237,5 @@ class StockMarketPredictor(BaseStockPredictor):
 
 # Alias for backward compatibility and explicit naming
 GradientBoostingStockPredictor = StockMarketPredictor
+GradientBoostingPredictor = StockMarketPredictor
 

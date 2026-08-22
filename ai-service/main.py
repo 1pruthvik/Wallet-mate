@@ -1,3 +1,5 @@
+import os
+import json
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
@@ -191,6 +193,19 @@ def list_investment_models():
     """
     Return list of available forecasting models, capability status, and versions.
     """
+    from ml.investment.tournament import ModelTournament
+    cand_models = ModelTournament.instantiate_models()
+    meta_list = [m.get_model_metadata() for m in cand_models.values()]
+
+    prod_file = "./data/model_registry/production_model.json"
+    prod_data = None
+    if os.path.exists(prod_file):
+        try:
+            with open(prod_file, "r") as f:
+                prod_data = json.load(f)
+        except Exception:
+            pass
+
     return {
         "models": [
             {
@@ -211,7 +226,10 @@ def list_investment_models():
                 "version": "1.0.0",
                 "type": "Weighted Ensemble (GradientBoosting + Foundation Model)"
             }
-        ]
+        ],
+        "candidate_models": meta_list,
+        "active_production_model": prod_data.get("production_model", "Ensemble") if prod_data else "Ensemble",
+        "production_metadata": prod_data
     }
 
 
@@ -507,3 +525,33 @@ def live_predict_endpoint(request: LivePredictRequest):
         data_quality=live_quote.data_quality if live_quote else "UNAVAILABLE",
         gemini_explanation=gemini_explain
     )
+
+
+class TournamentRequest(BaseModel):
+    symbol: str = "RELIANCE.NS"
+    years: int = 10
+    horizon: int = 20
+    friction_bps: float = 0.0
+
+
+@app.post("/investment/model-tournament")
+def run_model_tournament_endpoint(request: TournamentRequest):
+    """Execute model tournament walk-forward benchmarking on specified symbol."""
+    from ml.investment.tournament import ModelTournament
+    try:
+        tourney = ModelTournament(
+            symbol=request.symbol,
+            years=request.years,
+            horizon=request.horizon,
+            friction_bps=request.friction_bps
+        )
+        res = tourney.run_tournament()
+        return {
+            "status": "SUCCESS",
+            "symbol": res["symbol"],
+            "winning_model": res["winning_model"],
+            "scores": res["scores"],
+            "models_metadata": res["models_metadata"]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Model tournament execution error: {str(e)}")

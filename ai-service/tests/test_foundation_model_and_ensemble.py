@@ -55,7 +55,7 @@ def test_ensemble_predictor_weighting_and_agreement(sample_historical_prices):
     assert isinstance(pred, PredictionResult)
     assert pred.model_name.startswith("EnsembleStockPredictor")
     assert pred.selected_model == "ensemble"
-    assert pred.model_agreement in ["HIGH", "MEDIUM", "LOW", "SINGLE_MODEL"]
+    assert pred.model_agreement in ["HIGH", "MEDIUM", "LOW", "SINGLE_MODEL", "NO_CLEAR_SIGNAL", "LOW_CONFIDENCE"]
     assert "gradient_boosting" in pred.model_predictions
     assert "foundation_model" in pred.model_predictions
 

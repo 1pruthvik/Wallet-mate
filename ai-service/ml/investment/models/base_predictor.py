@@ -1,12 +1,13 @@
 from abc import ABC, abstractmethod
-from typing import Optional
+from typing import Optional, Any
 from ml.investment.schemas import PredictionResult, HistoricalPrice, FundamentalSnapshot
 
 
 class BaseStockPredictor(ABC):
     """
     Abstract Interface for Time-Series Stock Market Predictor Models.
-    Enforces standardized probabilistic prediction and expected return output contract.
+    Enforces standardized probabilistic prediction, expected return output contract,
+    and model status reporting.
     """
 
     @abstractmethod
@@ -32,7 +33,7 @@ class BaseStockPredictor(ABC):
         historical_prices: Optional[list[HistoricalPrice]] = None,
         fundamentals: Optional[FundamentalSnapshot] = None
     ) -> str:
-        """Helper method returning predicted direction ('positive'/'negative')."""
+        """Helper method returning predicted direction ('positive'/'negative'/'neutral')."""
         pred = self.predict(symbol, horizon_days, historical_prices, fundamentals)
         return pred.direction
 
@@ -46,3 +47,14 @@ class BaseStockPredictor(ABC):
         """Helper method returning predicted return float."""
         pred = self.predict(symbol, horizon_days, historical_prices, fundamentals)
         return pred.predicted_return
+
+    def get_model_metadata(self) -> dict[str, Any]:
+        """Return model metadata, status, version, device, and load error information."""
+        return {
+            "model_name": getattr(self, "model_name", self.__class__.__name__),
+            "model_version": getattr(self, "model_version", "1.0.0"),
+            "status": getattr(self, "status", "AVAILABLE"),
+            "device": getattr(self, "device", "cpu"),
+            "is_available": getattr(self, "is_available", True),
+            "load_error": getattr(self, "load_error", None)
+        }

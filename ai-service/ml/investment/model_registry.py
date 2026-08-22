@@ -16,8 +16,8 @@ class ModelRegistry:
     Stores trained model artifacts (.joblib) and detailed metadata (.json) in data/model_registry/.
     """
 
-    def __init__(self, registry_dir: str = "./data/model_registry"):
-        self.registry_dir = os.path.abspath(registry_dir)
+    def __init__(self, registry_dir: Optional[str] = "./data/model_registry"):
+        self.registry_dir = os.path.abspath(registry_dir or "./data/model_registry")
         os.makedirs(self.registry_dir, exist_ok=True)
         self.active_version_file = os.path.join(self.registry_dir, "active_version.json")
 

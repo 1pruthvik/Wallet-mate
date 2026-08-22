@@ -125,8 +125,11 @@ class WalkForwardBacktester:
                 )
                 pred_ret = float(pred_res.predicted_return)
             except Exception:
-                X_test = dataset.X[i].reshape(1, -1)
-                pred_ret = float(self.predictor.regressor.predict(X_test)[0])
+                if hasattr(self.predictor, "regressor") and self.predictor.regressor is not None:
+                    X_test = dataset.X[i].reshape(1, -1)
+                    pred_ret = float(self.predictor.regressor.predict(X_test)[0])
+                else:
+                    pred_ret = 0.0
 
             predicted_returns.append(pred_ret)
             actual_returns.append(actual_ret)
