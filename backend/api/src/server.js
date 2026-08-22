@@ -2,6 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
+const connectDB = require("./config/db");
 const transactionRoutes = require("./routes/transactionRoutes");
 require("dotenv").config();
 
@@ -52,6 +53,8 @@ app.get("/api/health", (req, res) => {
         status: "healthy",
     });
 });
+
+connectDB();
 
 /*
  * Start server

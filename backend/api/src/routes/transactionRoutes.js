@@ -1,17 +1,20 @@
 const express = require("express");
 
+const {
+    getTransactions,
+    createTransaction,
+} = require("../controllers/transactionController");
+
 const router = express.Router();
 
 /*
  * GET /api/transactions
  */
+router.get("/", getTransactions);
 
-router.get("/", (req, res) => {
-    res.json({
-        success: true,
-        message: "Transactions endpoint is working",
-        transactions: [],
-    });
-});
+/*
+ * POST /api/transactions
+ */
+router.post("/", createTransaction);
 
 module.exports = router;
