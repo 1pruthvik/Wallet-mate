@@ -2,7 +2,8 @@ import os
 import json
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Any, Dict, List
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -58,6 +59,16 @@ from rag.models import (
 )
 from rag.service import RAGService
 
+# Auth & Personal Data Ingestion Imports
+from auth.models import User, UserRegisterRequest, VerifyPhoneRequest, VerifyEmailRequest
+from auth.otp import OTPManager, MockOTPProvider
+from auth.email import EmailVerificationService
+from auth.consent import UserConsentManager
+from auth.auth_service import AuthService
+from ingestion.gmail_provider import GmailOAuthManager
+from ingestion.service import PersonalDataIngestionService
+from privacy.service import PrivacyService
+
 
 # Global Service Singletons
 market_service = MarketDataService()
@@ -76,6 +87,25 @@ sentiment_provider = SentimentProvider()
 
 rag_service = RAGService()
 ai_service = AIExplanationService()
+
+# Auth & Personal Data Ingestion Singletons
+otp_manager = OTPManager()
+email_service = EmailVerificationService()
+user_consent_manager = UserConsentManager()
+auth_service = AuthService(otp_manager, email_service, user_consent_manager)
+
+gmail_oauth_manager = GmailOAuthManager()
+ingestion_service = PersonalDataIngestionService(gmail_oauth_manager)
+privacy_service = PrivacyService(user_consent_manager, gmail_oauth_manager, ingestion_service)
+
+# Market Instrument Resolver & Quote Service Singletons
+from ml.investment.resolver import InstrumentResolver
+from ai.quote_service import MarketQuoteService
+
+instrument_resolver = InstrumentResolver(market_provider)
+quote_service = MarketQuoteService(market_provider)
+
+
 
 
 def get_predictor(model_name: Optional[str] = "ensemble"):
@@ -571,5 +601,221 @@ def run_model_tournament_endpoint(request: TournamentRequest):
         raise HTTPException(status_code=500, detail=f"Model tournament execution error: {str(e)}")
 
 
+# ==================================================
+# USER AUTHENTICATION ENDPOINTS
+# ==================================================
+
+@app.post("/auth/register")
+def register_endpoint(request: UserRegisterRequest):
+    success, result = auth_service.register_user(
+        phone_number=request.phone_number,
+        email=request.email,
+        password=request.password
+    )
+    if not success:
+        raise HTTPException(status_code=400, detail=result)
+    return {
+        "success": True,
+        "message": "User registered successfully. Verification OTPs sent to phone and email.",
+        "user": result.to_dict()
+    }
+
+
+class LoginRequest(BaseModel):
+    identifier: str
+    password: str
+
+
+@app.post("/auth/login")
+def login_endpoint(request: LoginRequest):
+    success, result = auth_service.authenticate_user(request.identifier, request.password)
+    if not success:
+        raise HTTPException(status_code=401, detail=result)
+    return {
+        "success": True,
+        "message": "Login successful.",
+        "user": result.to_dict()
+    }
+
+
+@app.post("/auth/verify-phone")
+def verify_phone_endpoint(request: VerifyPhoneRequest):
+    success, message = auth_service.verify_phone(request.phone_number, request.otp)
+    if not success:
+        raise HTTPException(status_code=400, detail=message)
+    return {
+        "success": True,
+        "message": message,
+        "phone_verified": True
+    }
+
+
+@app.post("/auth/verify-email")
+def verify_email_endpoint(request: VerifyEmailRequest):
+    success, message = auth_service.verify_email(request.email, request.code)
+    if not success:
+        raise HTTPException(status_code=400, detail=message)
+    return {
+        "success": True,
+        "message": message,
+        "email_verified": True
+    }
+
+
+@app.get("/auth/gmail/connect")
+def gmail_connect_endpoint(user_id: str, redirect_uri: str = "http://localhost:5173/auth/gmail/callback"):
+    url = gmail_oauth_manager.get_authorization_url(redirect_uri, state=user_id)
+    return {
+        "authorization_url": url,
+        "scope": gmail_oauth_manager.scope
+    }
+
+
+@app.get("/auth/gmail/callback")
+def gmail_callback_endpoint(code: str, state: str):
+    user_id = state
+    token_info = gmail_oauth_manager.exchange_code_for_tokens(code, user_id)
+    user_consent_manager.grant_consent(user_id, "GMAIL_READ", "https://www.googleapis.com/auth/gmail.readonly")
+    return {
+        "success": True,
+        "message": "Gmail account connected and authorized successfully.",
+        "status": token_info["status"]
+    }
+
+
+@app.get("/auth/gmail/status")
+def gmail_status_endpoint(user_id: str):
+    connected = gmail_oauth_manager.get_token_status(user_id)
+    authorized = user_consent_manager.is_source_authorized(user_id, "GMAIL_READ")
+    return {
+        "user_id": user_id,
+        "connected": connected and authorized,
+        "scope": gmail_oauth_manager.scope
+    }
+
+
+@app.post("/auth/gmail/disconnect")
+def gmail_disconnect_endpoint(user_id: str):
+    res = privacy_service.revoke_data_source(user_id, "GMAIL_READ")
+    return res
+
+
+# ==================================================
+# DATA INGESTION ENDPOINTS
+# ==================================================
+
+@app.post("/data/gmail/sync")
+def gmail_sync_endpoint(user_id: str):
+    if not user_consent_manager.is_source_authorized(user_id, "GMAIL_READ"):
+        raise HTTPException(status_code=403, detail="Gmail access consent not granted or revoked.")
+    res = ingestion_service.sync_gmail_data(user_id)
+    if not res.get("success"):
+        raise HTTPException(status_code=400, detail=res.get("error", "Gmail sync failed."))
+    return res
+
+
+class SMSImportPayload(BaseModel):
+    user_id: str
+    source: str = "android_sms"
+    messages: list[dict[str, Any]]
+
+
+@app.post("/data/sms/import")
+def sms_import_endpoint(payload: SMSImportPayload):
+    user_id = payload.user_id
+    user_consent_manager.grant_consent(user_id, "SMS_FINANCIAL_MESSAGES", "local_sms_parsing")
+    res = ingestion_service.import_sms_data(user_id, payload.model_dump())
+    return res
+
+
+@app.get("/data/connections")
+def data_connections_endpoint(user_id: str):
+    return privacy_service.get_data_sources(user_id)
+
+
+@app.post("/data/sync-all")
+def sync_all_endpoint(user_id: str):
+    gmail_res = {}
+    if user_consent_manager.is_source_authorized(user_id, "GMAIL_READ"):
+        gmail_res = ingestion_service.sync_gmail_data(user_id)
+
+    summary = privacy_service.get_data_summary(user_id)
+    return {
+        "success": True,
+        "user_id": user_id,
+        "gmail_sync": gmail_res,
+        "summary": summary
+    }
+
+
+# ==================================================
+# PRIVACY & DATA CONTROL ENDPOINTS
+# ==================================================
+
+@app.get("/privacy/data-sources")
+def privacy_data_sources_endpoint(user_id: str):
+    return privacy_service.get_data_sources(user_id)
+
+
+@app.post("/privacy/revoke/{source}")
+def privacy_revoke_source_endpoint(source: str, user_id: str):
+    res = privacy_service.revoke_data_source(user_id, source)
+    return res
+
+
+@app.get("/privacy/data-summary")
+def privacy_data_summary_endpoint(user_id: str):
+    return privacy_service.get_data_summary(user_id)
+
+
+@app.delete("/privacy/my-data")
+def privacy_delete_my_data_endpoint(user_id: str):
+    res = privacy_service.delete_all_user_data(user_id)
+    return res
+
+
+# ==================================================
+# DYNAMIC MARKET & ASSET SEARCH ENDPOINTS
+# ==================================================
+
+@app.get("/market/search")
+def market_search_endpoint(q: str):
+    """
+    Search any stock or instrument dynamically supported by the MarketDataProvider.
+    """
+    matches = instrument_resolver.search_instruments(q)
+    return {
+        "query": q,
+        "count": len(matches),
+        "matches": matches
+    }
+
+
+@app.get("/market/quote")
+def market_quote_query_endpoint(query: str):
+    """
+    Get live quote or natural-language asset price resolution for ANY supported stock/security.
+    """
+    result = quote_service.process_quote_query(query)
+    return result
+
+
+@app.get("/market/instrument/{symbol}")
+def market_instrument_endpoint(symbol: str):
+    """
+    Get detailed instrument specifications for specified symbol.
+    """
+    details = instrument_resolver.get_instrument_details(symbol)
+    if not details:
+        raise HTTPException(
+            status_code=404,
+            detail={"status": "INSTRUMENT_NOT_FOUND", "message": f"Instrument '{symbol}' not found."}
+        )
+    return details
+
+
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=False)
+    port = int(os.getenv("PORT", 8001))
+    uvicorn.run("main:app", host="127.0.0.1", port=port, reload=False)
+
+

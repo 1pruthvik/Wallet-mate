@@ -144,3 +144,45 @@ class MockMarketDataProvider(MarketDataProvider):
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
         return self.get_historical_prices(symbol, start_date, end_date)
+
+    def search_instruments(self, query: str) -> list[dict]:
+        clean_q = query.upper().strip()
+
+        # Stock universe master catalog
+        catalog = [
+            {"symbol": "AAPL", "company": "Apple Inc.", "exchange": "NASDAQ", "market": "US", "asset_type": "EQUITY", "country": "US", "instrument_key": "NASDAQ:AAPL"},
+            {"symbol": "NVDA", "company": "NVIDIA Corporation", "exchange": "NASDAQ", "market": "US", "asset_type": "EQUITY", "country": "US", "instrument_key": "NASDAQ:NVDA"},
+            {"symbol": "MSFT", "company": "Microsoft Corporation", "exchange": "NASDAQ", "market": "US", "asset_type": "EQUITY", "country": "US", "instrument_key": "NASDAQ:MSFT"},
+            {"symbol": "TSLA", "company": "Tesla, Inc.", "exchange": "NASDAQ", "market": "US", "asset_type": "EQUITY", "country": "US", "instrument_key": "NASDAQ:TSLA"},
+            {"symbol": "AMZN", "company": "Amazon.com, Inc.", "exchange": "NASDAQ", "market": "US", "asset_type": "EQUITY", "country": "US", "instrument_key": "NASDAQ:AMZN"},
+            {"symbol": "GOOGL", "company": "Alphabet Inc.", "exchange": "NASDAQ", "market": "US", "asset_type": "EQUITY", "country": "US", "instrument_key": "NASDAQ:GOOGL"},
+            {"symbol": "INFY.NS", "company": "Infosys Limited", "exchange": "NSE", "market": "IN", "asset_type": "EQUITY", "country": "IN", "instrument_key": "NSE:INFY"},
+            {"symbol": "RELIANCE.NS", "company": "Reliance Industries Limited", "exchange": "NSE", "market": "IN", "asset_type": "EQUITY", "country": "IN", "instrument_key": "NSE:RELIANCE"},
+            {"symbol": "TCS.NS", "company": "Tata Consultancy Services Limited", "exchange": "NSE", "market": "IN", "asset_type": "EQUITY", "country": "IN", "instrument_key": "NSE:TCS"},
+            {"symbol": "TATAMOTORS.NS", "company": "Tata Motors Limited", "exchange": "NSE", "market": "IN", "asset_type": "EQUITY", "country": "IN", "instrument_key": "NSE:TATAMOTORS"},
+            {"symbol": "HDFCBANK.NS", "company": "HDFC Bank Limited", "exchange": "NSE", "market": "IN", "asset_type": "EQUITY", "country": "IN", "instrument_key": "NSE:HDFCBANK"},
+            {"symbol": "ICICIBANK.NS", "company": "ICICI Bank Limited", "exchange": "NSE", "market": "IN", "asset_type": "EQUITY", "country": "IN", "instrument_key": "NSE:ICICIBANK"},
+        ]
+
+        matches = []
+        for item in catalog:
+            if (clean_q in item["symbol"] or
+                clean_q in item["company"].upper() or
+                clean_q in item["instrument_key"].upper()):
+                matches.append(item)
+
+        # Dynamic fallback for any query symbol requested by user
+        if not matches and len(clean_q) >= 2 and clean_q.isalnum():
+            exchange = "NSE" if not clean_q.isalpha() or len(clean_q) > 5 else "NASDAQ"
+            matches.append({
+                "symbol": clean_q,
+                "company": f"{clean_q.title()} Security",
+                "exchange": exchange,
+                "market": "IN" if exchange == "NSE" else "US",
+                "asset_type": "EQUITY",
+                "country": "IN" if exchange == "NSE" else "US",
+                "instrument_key": f"{exchange}:{clean_q}"
+            })
+
+        return matches
+

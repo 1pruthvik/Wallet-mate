@@ -40,3 +40,33 @@ class MarketDataProvider(ABC):
         days: int = 60
     ) -> list[HistoricalPrice]:
         pass
+
+    def supports_market(self, exchange: str) -> bool:
+        """Check if provider supports specified exchange (e.g. NSE, BSE, NASDAQ, NYSE)."""
+        return True
+
+    def supports_asset_type(self, asset_type: str) -> bool:
+        """Check if provider supports asset type (e.g. EQUITY, INDEX, ETF)."""
+        return asset_type.upper() in ["EQUITY", "STOCK", "INDEX", "ETF"]
+
+    def supports_symbol_search(self) -> bool:
+        """Check if provider supports dynamic symbol search."""
+        return True
+
+    def supports_realtime_quotes(self) -> bool:
+        """Check if provider supports real-time quotes."""
+        return True
+
+    def supports_intraday_history(self) -> bool:
+        """Check if provider supports intraday history."""
+        return True
+
+    def supports_historical_data(self) -> bool:
+        """Check if provider supports daily historical data."""
+        return True
+
+    @abstractmethod
+    def search_instruments(self, query: str) -> list[dict]:
+        """Search instruments dynamically across provider dataset."""
+        pass
+

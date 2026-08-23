@@ -155,3 +155,32 @@ class YFinanceMarketDataProvider(MarketDataProvider):
         end_date = datetime.now()
         start_date = end_date - timedelta(days=days)
         return self.get_historical_prices(symbol, start_date, end_date)
+
+    def search_instruments(self, query: str) -> list[dict]:
+        """Search instruments dynamically via yfinance or fallback provider."""
+        try:
+            import yfinance as yf
+            search_obj = yf.Search(query, max_results=10)
+            quotes = search_obj.quotes if hasattr(search_obj, "quotes") else []
+            results = []
+            for q in quotes:
+                sym = q.get("symbol", "")
+                exch = q.get("exchange", "UNKNOWN")
+                long_name = q.get("shortname") or q.get("longname") or sym
+                results.append({
+                    "symbol": sym,
+                    "company": long_name,
+                    "exchange": exch,
+                    "market": "IN" if ".NS" in sym or ".BO" in sym or exch in ["NSI", "BSE"] else "US",
+                    "asset_type": q.get("quoteType", "EQUITY"),
+                    "country": "IN" if ".NS" in sym or ".BO" in sym else "US",
+                    "instrument_key": f"{exch}:{sym}"
+                })
+            if results:
+                return results
+        except Exception as e:
+            logger.debug(f"yfinance search for '{query}' failed: {e}")
+
+        # Fallback to mock provider dynamic search
+        return self._fallback_provider.search_instruments(query)
+

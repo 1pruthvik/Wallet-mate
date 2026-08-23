@@ -39,3 +39,7 @@ class Transaction(BaseModel):
         ge=0.0,
         le=1.0
     )
+
+    user_id: Optional[str] = None
+
+    source: Optional[str] = None

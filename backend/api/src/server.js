@@ -4,6 +4,7 @@ const helmet = require("helmet");
 const morgan = require("morgan");
 const connectDB = require("./config/db");
 const transactionRoutes = require("./routes/transactionRoutes");
+const authRoutes = require("./routes/authRoutes");
 require("dotenv").config();
 
 const app = express();
@@ -33,6 +34,12 @@ app.use(
     "/api/transactions",
     transactionRoutes
 );
+
+app.use(
+    "/api/auth",
+    authRoutes
+);
+
 
 // Health check
 app.get("/", (req, res) => {
