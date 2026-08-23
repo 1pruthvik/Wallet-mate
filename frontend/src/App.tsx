@@ -8,6 +8,8 @@ import {
 } from "react-router-dom";
 
 import AppLayout from "./layouts/AppLayout";
+import ProtectedRoute from "./components/ProtectedRoute";
+import AuthPage from "./pages/AuthPage";
 
 import Dashboard from "./pages/Dashboard";
 import Transactions from "./pages/Transactions";
@@ -21,9 +23,20 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Auth Routes */}
+        <Route path="/login" element={<AuthPage defaultMode="login" />} />
+        <Route path="/signup" element={<AuthPage defaultMode="signup" />} />
+        <Route path="/forgot-password" element={<AuthPage defaultMode="forgot-password" />} />
+        <Route path="/auth" element={<AuthPage />} />
 
-        <Route element={<AppLayout />}>
-
+        {/* Protected Application Routes */}
+        <Route
+          element={
+            <ProtectedRoute>
+              <AppLayout />
+            </ProtectedRoute>
+          }
+        >
           <Route
             path="/"
             element={<Navigate to="/dashboard" replace />}
@@ -63,9 +76,10 @@ function App() {
             path="/profile"
             element={<Profile />}
           />
-
         </Route>
 
+        {/* Fallback route */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   );
