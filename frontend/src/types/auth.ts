@@ -57,7 +57,6 @@ export interface OtpSession {
   purpose: 'login' | 'signup' | 'password-reset';
   maskedPhone: string;
   expiresAt: number;
-  mockCode?: string;
   tempUserData?: Partial<SignupData>;
 }
 

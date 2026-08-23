@@ -221,7 +221,7 @@ class AuthService {
   }
 
   // ==========================================
-  // PHONE OTP AUTHENTICATION
+  // PHONE OTP AUTHENTICATION (REAL SMS VIA TWILIO VERIFY)
   // ==========================================
   async sendPhoneOtp(
     phone: string,
@@ -231,28 +231,26 @@ class AuthService {
   ): Promise<OtpSession> {
     const cleanDigits = phone.replace(/\D/g, '');
     if (cleanDigits.length < 7 || cleanDigits.length > 15) {
-      throw new Error('Please enter a valid phone number.');
+      throw new Error('Please enter a valid mobile number.');
     }
 
     const fullPhone = `${countryCode}${cleanDigits}`;
-    const maskedPhone = this.maskPhoneNumber(countryCode, cleanDigits);
-    let generatedOtp = '123456';
+    const fallbackMasked = this.maskPhoneNumber(countryCode, cleanDigits);
 
-    try {
-      const res = await apiClient.post<{ success: boolean; data: any }>('/auth/send-otp', {
-        phone: cleanDigits,
-        countryCode,
-        purpose,
-      });
+    // Call backend API to trigger real SMS OTP via Twilio Verify
+    const res = await apiClient.post<{
+      success: boolean;
+      message: string;
+      data?: { phone: string; maskedPhone: string; expiresInSeconds: number };
+    }>('/auth/send-otp', {
+      phone: cleanDigits,
+      countryCode,
+      purpose,
+    });
 
-      if (res.data?.data?.demoCode) {
-        generatedOtp = res.data.data.demoCode;
-      }
-    } catch (apiErr: any) {
-      console.warn('Backend OTP endpoint offline, using local OTP generation.');
-    }
-
-    const expiresAt = Date.now() + 3 * 60 * 1000; // 3 minutes
+    const expiresInSeconds = res.data?.data?.expiresInSeconds || 600;
+    const expiresAt = Date.now() + expiresInSeconds * 1000;
+    const maskedPhone = res.data?.data?.maskedPhone || fallbackMasked;
 
     const session: OtpSession = {
       phone: fullPhone,
@@ -260,23 +258,10 @@ class AuthService {
       purpose,
       maskedPhone,
       expiresAt,
-      mockCode: generatedOtp,
       tempUserData,
     };
 
     sessionStorage.setItem(STORAGE_KEYS.OTP_SESSION, JSON.stringify(session));
-
-    // Dispatch notification event for UI toast
-    window.dispatchEvent(
-      new CustomEvent('wallet-mate-otp-sent', {
-        detail: {
-          phone: maskedPhone,
-          otp: generatedOtp,
-          purpose,
-        },
-      })
-    );
-
     return session;
   }
 
@@ -290,74 +275,37 @@ class AuthService {
       throw new Error('Please enter the complete 6-digit verification code.');
     }
 
-    // Try backend MongoDB verify API
-    try {
-      const res = await apiClient.post<{ success: boolean; token: string; user: User; verified?: boolean }>(
-        '/auth/verify-otp',
-        {
-          phone,
-          otp,
-          name: tempUserData?.name,
-          email: tempUserData?.email,
-          purpose,
-        }
-      );
-
-      if (purpose === 'password-reset') {
-        return { verified: true };
-      }
-
-      if (res.data && res.data.token && res.data.user) {
-        const user = res.data.user;
-        const token = res.data.token;
-
-        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
-        localStorage.setItem(STORAGE_KEYS.TOKEN, token);
-        sessionStorage.removeItem(STORAGE_KEYS.OTP_SESSION);
-
-        return { user, token };
-      }
-    } catch (apiErr: any) {
-      if (apiErr.response && apiErr.response.data?.message) {
-        throw new Error(apiErr.response.data.message);
-      }
-    }
+    // Call backend API to verify code with Twilio Verify
+    const res = await apiClient.post<{
+      success: boolean;
+      message?: string;
+      token: string;
+      user: User;
+      verified?: boolean;
+    }>('/auth/verify-otp', {
+      phone,
+      otp,
+      name: tempUserData?.name,
+      email: tempUserData?.email,
+      purpose,
+    });
 
     if (purpose === 'password-reset') {
       return { verified: true };
     }
 
-    const users = this.getStoredUsers();
-    let user = users.find((u) => u.phone === phone);
+    if (res.data && res.data.token && res.data.user) {
+      const user = res.data.user;
+      const token = res.data.token;
 
-    if (!user) {
-      const name = tempUserData?.name || (tempUserData?.email ? tempUserData.email.split('@')[0] : 'Wallet-Mate Member');
-      const email = tempUserData?.email || `user_${phone.replace(/\D/g, '').slice(-4)}@walletmate.io`;
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+      localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+      sessionStorage.removeItem(STORAGE_KEYS.OTP_SESSION);
 
-      user = {
-        id: `66000000000000000000${Date.now().toString().slice(-4)}`,
-        name,
-        email,
-        phone,
-        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${phone}`,
-        role: 'Standard Member',
-        authProvider: 'phone',
-        isPhoneVerified: true,
-        createdAt: new Date().toISOString(),
-      };
-      users.push(user);
-      this.saveStoredUsers(users);
-    } else {
-      user.isPhoneVerified = true;
-      this.saveStoredUsers(users);
+      return { user, token };
     }
 
-    const token = `wm_jwt_${btoa(user.id)}_${Date.now()}`;
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
-    localStorage.setItem(STORAGE_KEYS.TOKEN, token);
-    sessionStorage.removeItem(STORAGE_KEYS.OTP_SESSION);
-
-    return { user, token };
+    throw new Error(res.data?.message || 'Verification failed. Please check the code and try again.');
   }
 
   // ==========================================

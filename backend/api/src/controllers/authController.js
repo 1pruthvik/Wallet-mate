@@ -1,6 +1,12 @@
 const jwt = require("jsonwebtoken");
 const mongoose = require("mongoose");
 const User = require("../models/User");
+const {
+    normalizePhoneNumber,
+    maskPhoneNumber,
+    sendVerificationCode,
+    checkVerificationCode,
+} = require("../services/smsService");
 
 const JWT_SECRET = process.env.JWT_SECRET || "wallet_mate_secure_jwt_secret_key_2026";
 
@@ -32,7 +38,8 @@ const register = async (req, res) => {
         const { fullName, name, email, password, phone, phoneNumber } = req.body;
         const targetName = (fullName || name || "").trim();
         const targetEmail = (email || "").trim().toLowerCase();
-        const targetPhone = (phoneNumber || phone || "").trim();
+        const rawPhone = (phoneNumber || phone || "").trim();
+        const targetPhone = rawPhone ? normalizePhoneNumber(rawPhone) : undefined;
 
         if (!targetName || targetName.length < 2) {
             return res.status(400).json({
@@ -71,7 +78,7 @@ const register = async (req, res) => {
                 if (existingPhone) {
                     return res.status(409).json({
                         success: false,
-                        message: "This phone number is already registered to another account.",
+                        message: "This phone number is already registered to another account. Please sign in.",
                     });
                 }
             }
@@ -83,7 +90,7 @@ const register = async (req, res) => {
             const newUser = await User.create({
                 fullName: targetName,
                 email: targetEmail,
-                phoneNumber: targetPhone || undefined,
+                phoneNumber: targetPhone,
                 passwordHash,
                 authProvider: "email",
                 isEmailVerified: false,
@@ -98,7 +105,6 @@ const register = async (req, res) => {
 
             const token = generateToken(newUser);
 
-            // Clean user response
             const userObj = newUser.toObject();
             delete userObj.passwordHash;
 
@@ -120,7 +126,7 @@ const register = async (req, res) => {
             });
         }
 
-        // Fallback in-memory registration if MongoDB is offline
+        // Fallback in-memory
         const existingMem = inMemoryUsers.find((u) => u.email === targetEmail);
         if (existingMem) {
             return res.status(409).json({
@@ -230,7 +236,7 @@ const login = async (req, res) => {
             });
         }
 
-        // Fallback in-memory / demo user login
+        // Fallback in-memory
         let user = inMemoryUsers.find((u) => u.email === targetEmail);
         if (!user) {
             user = {
@@ -278,62 +284,86 @@ const login = async (req, res) => {
 
 /*
  * POST /api/auth/send-otp
+ * Triggers real SMS OTP to the user's mobile number via Twilio Verify
  */
 const sendOtp = async (req, res) => {
     try {
         const { phone, countryCode = "+91", purpose = "login" } = req.body;
-        const cleanDigits = (phone || "").replace(/\D/g, "");
 
-        if (!cleanDigits || cleanDigits.length < 7) {
+        const normalizedPhone = normalizePhoneNumber(phone, countryCode);
+        if (!normalizedPhone) {
             return res.status(400).json({
                 success: false,
-                message: "Please enter a valid phone number.",
+                message: "Please enter a valid mobile number with country code.",
             });
         }
 
-        const fullPhone = `${countryCode}${cleanDigits}`;
-        const masked = `${countryCode} ${cleanDigits.slice(0, 2)}${"X".repeat(Math.max(4, cleanDigits.length - 4))}${cleanDigits.slice(-2)}`;
+        if (isDbConnected()) {
+            if (purpose === "signup") {
+                const existingUser = await User.findOne({ phoneNumber: normalizedPhone });
+                if (existingUser) {
+                    return res.status(409).json({
+                        success: false,
+                        message: "This mobile number is already registered. Please sign in instead.",
+                    });
+                }
+            }
+        }
 
+        // Call Twilio Verify to send real SMS code
+        const verification = await sendVerificationCode(normalizedPhone);
+
+        const masked = maskPhoneNumber(normalizedPhone);
+
+        // Safe response: NEVER returns the OTP
         return res.json({
             success: true,
-            message: `Verification code sent to ${masked}.`,
+            message: `Verification code sent via SMS to ${masked}.`,
             data: {
-                phone: fullPhone,
+                phone: normalizedPhone,
                 maskedPhone: masked,
-                expiresInSeconds: 180,
-                // In demo/dev environment, test code is 123456
-                demoCode: "123456",
+                expiresInSeconds: 600,
             },
         });
     } catch (error) {
-        return res.status(500).json({
+        console.error("Send OTP error:", error.message);
+        return res.status(400).json({
             success: false,
-            message: "Failed to send OTP.",
-            error: error.message,
+            message: error.message || "Failed to send SMS verification code. Please check your mobile number and try again.",
         });
     }
 };
 
 /*
  * POST /api/auth/verify-otp
+ * Verifies SMS OTP with Twilio Verify and authenticates user
  */
 const verifyOtp = async (req, res) => {
     try {
-        const { phone, otp, name, email, purpose = "login" } = req.body;
+        const { phone, countryCode = "+91", otp, name, email, purpose = "login" } = req.body;
 
-        if (!otp || otp.length !== 6) {
+        const normalizedPhone = normalizePhoneNumber(phone, countryCode);
+        if (!normalizedPhone) {
             return res.status(400).json({
                 success: false,
-                message: "Please enter the complete 6-digit verification code.",
+                message: "Invalid mobile number format.",
             });
         }
 
-        // Accept demo OTPs or any 6-digit code in test environment
-        const isValid = otp === "123456" || otp.length === 6;
-        if (!isValid) {
+        if (!otp || otp.trim().length !== 6) {
             return res.status(400).json({
                 success: false,
-                message: "Invalid or expired OTP. Please check the code and try again.",
+                message: "Please enter the complete 6-digit verification code received on your phone.",
+            });
+        }
+
+        // Call Twilio Verify to check the code
+        const checkResult = await checkVerificationCode(normalizedPhone, otp.trim());
+
+        if (!checkResult.approved) {
+            return res.status(400).json({
+                success: false,
+                message: checkResult.message || "The verification code is incorrect or has expired.",
             });
         }
 
@@ -346,20 +376,20 @@ const verifyOtp = async (req, res) => {
         }
 
         if (isDbConnected()) {
-            let user = await User.findOne({ phoneNumber: phone });
+            let user = await User.findOne({ phoneNumber: normalizedPhone });
             if (!user) {
-                const cleanName = name || (email ? email.split("@")[0] : "Wallet-Mate User");
-                const cleanEmail = email || `user_${phone.replace(/\D/g, "").slice(-4)}@walletmate.io`;
+                const cleanName = (name || (email ? email.split("@")[0] : "Wallet-Mate Member")).trim();
+                const cleanEmail = (email || `user_${normalizedPhone.slice(-6)}@walletmate.io`).trim().toLowerCase();
 
                 user = await User.create({
                     fullName: cleanName,
                     email: cleanEmail,
-                    phoneNumber: phone,
+                    phoneNumber: normalizedPhone,
                     authProvider: "phone",
                     isPhoneVerified: true,
                     isEmailVerified: false,
                     profile: {
-                        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${phone}`,
+                        avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${normalizedPhone}`,
                         currency: "INR",
                         role: "Standard Member",
                     },
@@ -377,7 +407,7 @@ const verifyOtp = async (req, res) => {
 
             return res.json({
                 success: true,
-                message: "Phone verification successful.",
+                message: "Mobile verification successful.",
                 token,
                 user: {
                     id: userObj._id.toString(),
@@ -393,16 +423,16 @@ const verifyOtp = async (req, res) => {
             });
         }
 
-        // Fallback in-memory user
+        // Fallback in-memory
         const memUser = {
             _id: new mongoose.Types.ObjectId(),
-            fullName: name || "Wallet-Mate User",
-            email: email || `user_${phone.replace(/\D/g, "").slice(-4)}@walletmate.io`,
-            phoneNumber: phone,
+            fullName: name || "Wallet-Mate Member",
+            email: email || `user_${normalizedPhone.slice(-6)}@walletmate.io`,
+            phoneNumber: normalizedPhone,
             authProvider: "phone",
             isPhoneVerified: true,
             profile: {
-                avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${phone}`,
+                avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${normalizedPhone}`,
                 role: "Standard Member",
             },
             createdAt: new Date(),
@@ -411,7 +441,7 @@ const verifyOtp = async (req, res) => {
         const token = generateToken(memUser);
         return res.json({
             success: true,
-            message: "Phone verification successful.",
+            message: "Mobile verification successful.",
             token,
             user: {
                 id: memUser._id.toString(),
@@ -426,11 +456,10 @@ const verifyOtp = async (req, res) => {
             },
         });
     } catch (error) {
-        console.error("Verify OTP error:", error);
-        return res.status(500).json({
+        console.error("Verify OTP error:", error.message);
+        return res.status(400).json({
             success: false,
-            message: "Failed to verify OTP.",
-            error: error.message,
+            message: error.message || "Failed to verify the SMS code.",
         });
     }
 };
@@ -482,9 +511,15 @@ const resetPassword = async (req, res) => {
             });
         }
 
+        const normalizedPhone = normalizePhoneNumber(identifier);
+
         if (isDbConnected()) {
             const user = await User.findOne({
-                $or: [{ email: identifier.toLowerCase() }, { phoneNumber: identifier }],
+                $or: [
+                    { email: identifier.toLowerCase() },
+                    { phoneNumber: identifier },
+                    { phoneNumber: normalizedPhone },
+                ],
             });
 
             if (user) {

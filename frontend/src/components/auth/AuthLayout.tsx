@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import WalletMateLogo from './WalletMateLogo';
-import { ShieldCheck, X } from 'lucide-react';
+import { ShieldCheck } from 'lucide-react';
 import '../../styles/auth.css';
 
 interface AuthLayoutProps {
@@ -10,26 +10,6 @@ interface AuthLayoutProps {
 }
 
 export const AuthLayout: React.FC<AuthLayoutProps> = ({ title, subtitle, children }) => {
-  const [toastData, setToastData] = useState<{ phone: string; otp: string; purpose: string } | null>(null);
-
-  useEffect(() => {
-    const handleOtpSent = (e: any) => {
-      if (e?.detail) {
-        setToastData(e.detail);
-        // Auto dismiss after 15s
-        const timer = setTimeout(() => {
-          setToastData(null);
-        }, 15000);
-        return () => clearTimeout(timer);
-      }
-    };
-
-    window.addEventListener('wallet-mate-otp-sent', handleOtpSent);
-    return () => {
-      window.removeEventListener('wallet-mate-otp-sent', handleOtpSent);
-    };
-  }, []);
-
   return (
     <div className="wm-auth-page">
       <div className="wm-auth-bg-ambient" />
@@ -48,7 +28,7 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ title, subtitle, childre
         <div className="wm-auth-legal">
           <div className="wm-security-badge">
             <ShieldCheck size={14} color="#635bff" />
-            <span>256-bit Bank-Grade Encryption & Security</span>
+            <span>End-to-End Encrypted & Secure Authentication</span>
           </div>
 
           <div className="wm-legal-links">
@@ -66,25 +46,6 @@ export const AuthLayout: React.FC<AuthLayoutProps> = ({ title, subtitle, childre
           </div>
         </div>
       </div>
-
-      {/* Demo helper toast for OTP verification ease */}
-      {toastData && (
-        <div className="wm-demo-toast">
-          <span className="wm-demo-toast-badge">Demo OTP</span>
-          <div style={{ flex: 1 }}>
-            <div>Code sent to {toastData.phone}:</div>
-            <span className="wm-demo-toast-code">{toastData.otp}</span>
-          </div>
-          <button
-            onClick={() => setToastData(null)}
-            className="wm-modal-close-btn"
-            style={{ color: '#fff' }}
-            aria-label="Close notification"
-          >
-            <X size={14} />
-          </button>
-        </div>
-      )}
     </div>
   );
 };
