@@ -3,7 +3,13 @@ import json
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv()
+
+import uvicorn
 from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from parsing.sms_parser import parse_sms
@@ -112,6 +118,14 @@ app = FastAPI(
     description="Financial Intelligence, Investment Intelligence, RAG System, and AI services for FinMitra",
     version="0.3.0",
     lifespan=lifespan
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
@@ -555,3 +569,7 @@ def run_model_tournament_endpoint(request: TournamentRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Model tournament execution error: {str(e)}")
+
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=False)
