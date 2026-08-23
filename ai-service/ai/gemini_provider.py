@@ -21,7 +21,7 @@ class GeminiProvider(AIProvider):
 
     def __init__(self, api_key: Optional[str] = None, model_name: Optional[str] = None):
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
-        self.model_name = model_name or os.getenv("GEMINI_MODEL", "gemini-3.6-flash")
+        self.model_name = model_name or os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
         self._fallback = MockAIProvider()
         self._client = None
 
@@ -33,7 +33,7 @@ class GeminiProvider(AIProvider):
                 try:
                     self._client = genai.Client()
                     self.api_key = os.getenv("GEMINI_API_KEY")
-                except Exception as e_cfg:
+                except Exception:
                     logger.warning("Configuration Error: GEMINI_API_KEY is not configured in environment.")
                     self._client = None
         except Exception as e_init:
@@ -55,28 +55,26 @@ class GeminiProvider(AIProvider):
         if not self._client:
             raise RuntimeError("Configuration Error: Gemini client is not initialized or GEMINI_API_KEY is missing.")
 
-        try:
-            response = self._client.models.generate_content(
-                model=self.model_name,
-                contents=prompt
-            )
-            if response and hasattr(response, "text") and response.text:
-                return response.text.strip()
-            return ""
-        except Exception as e:
-            err_msg = str(e)
-            sanitized_err = self._sanitize_log_message(err_msg)
-            
-            if "429" in err_msg or "RESOURCE_EXHAUSTED" in err_msg:
-                logger.warning(f"Gemini API rate limit exceeded (429): {sanitized_err}")
-            elif "503" in err_msg or "500" in err_msg or "UNAVAILABLE" in err_msg:
-                logger.warning(f"Gemini service temporarily unavailable (5xx/503): {sanitized_err}")
-            elif "400" in err_msg or "403" in err_msg or "INVALID_ARGUMENT" in err_msg:
-                logger.warning(f"Gemini client API error (4xx): {sanitized_err}")
-            else:
-                logger.warning(f"Gemini network or service error: {sanitized_err}")
-            
-            raise RuntimeError(f"Gemini API generation failed: {sanitized_err}") from e
+        candidate_models = [self.model_name, "gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-flash-latest"]
+        seen_models = set()
+
+        for model in candidate_models:
+            if not model or model in seen_models:
+                continue
+            seen_models.add(model)
+            try:
+                response = self._client.models.generate_content(
+                    model=model,
+                    contents=prompt
+                )
+                if response and hasattr(response, "text") and response.text:
+                    return response.text.strip()
+            except Exception as e:
+                err_msg = str(e)
+                sanitized_err = self._sanitize_log_message(err_msg)
+                logger.info(f"Model {model} generation attempt failed: {sanitized_err}, trying next fallback model.")
+
+        raise RuntimeError("All Gemini candidate models failed to generate content.")
 
     def generate_explanation(
         self,
