@@ -238,31 +238,38 @@ class AuthService {
     const fallbackMasked = this.maskPhoneNumber(countryCode, cleanDigits);
 
     // Call backend API to trigger real SMS OTP via Twilio Verify
-    const res = await apiClient.post<{
-      success: boolean;
-      message: string;
-      data?: { phone: string; maskedPhone: string; expiresInSeconds: number };
-    }>('/auth/send-otp', {
-      phone: cleanDigits,
-      countryCode,
-      purpose,
-    });
+    try {
+      const res = await apiClient.post<{
+        success: boolean;
+        message: string;
+        data?: { phone: string; maskedPhone: string; expiresInSeconds: number };
+      }>('/auth/send-otp', {
+        phone: cleanDigits,
+        countryCode,
+        purpose,
+      });
 
-    const expiresInSeconds = res.data?.data?.expiresInSeconds || 600;
-    const expiresAt = Date.now() + expiresInSeconds * 1000;
-    const maskedPhone = res.data?.data?.maskedPhone || fallbackMasked;
+      const expiresInSeconds = res.data?.data?.expiresInSeconds || 600;
+      const expiresAt = Date.now() + expiresInSeconds * 1000;
+      const maskedPhone = res.data?.data?.maskedPhone || fallbackMasked;
 
-    const session: OtpSession = {
-      phone: fullPhone,
-      countryCode,
-      purpose,
-      maskedPhone,
-      expiresAt,
-      tempUserData,
-    };
+      const session: OtpSession = {
+        phone: fullPhone,
+        countryCode,
+        purpose,
+        maskedPhone,
+        expiresAt,
+        tempUserData,
+      };
 
-    sessionStorage.setItem(STORAGE_KEYS.OTP_SESSION, JSON.stringify(session));
-    return session;
+      sessionStorage.setItem(STORAGE_KEYS.OTP_SESSION, JSON.stringify(session));
+      return session;
+    } catch (err: any) {
+      if (err.response?.data?.message) {
+        throw new Error(err.response.data.message);
+      }
+      throw new Error(err.message || 'Failed to send SMS verification code. Please check your backend connection.');
+    }
   }
 
   async verifyPhoneOtp(
@@ -275,37 +282,44 @@ class AuthService {
       throw new Error('Please enter the complete 6-digit verification code.');
     }
 
-    // Call backend API to verify code with Twilio Verify
-    const res = await apiClient.post<{
-      success: boolean;
-      message?: string;
-      token: string;
-      user: User;
-      verified?: boolean;
-    }>('/auth/verify-otp', {
-      phone,
-      otp,
-      name: tempUserData?.name,
-      email: tempUserData?.email,
-      purpose,
-    });
+    try {
+      // Call backend API to verify code with Twilio Verify
+      const res = await apiClient.post<{
+        success: boolean;
+        message?: string;
+        token: string;
+        user: User;
+        verified?: boolean;
+      }>('/auth/verify-otp', {
+        phone,
+        otp,
+        name: tempUserData?.name,
+        email: tempUserData?.email,
+        purpose,
+      });
 
-    if (purpose === 'password-reset') {
-      return { verified: true };
+      if (purpose === 'password-reset') {
+        return { verified: true };
+      }
+
+      if (res.data && res.data.token && res.data.user) {
+        const user = res.data.user;
+        const token = res.data.token;
+
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+        localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+        sessionStorage.removeItem(STORAGE_KEYS.OTP_SESSION);
+
+        return { user, token };
+      }
+
+      throw new Error(res.data?.message || 'Verification failed. Please check the code and try again.');
+    } catch (err: any) {
+      if (err.response?.data?.message) {
+        throw new Error(err.response.data.message);
+      }
+      throw new Error(err.message || 'Failed to verify the SMS code. Please try again.');
     }
-
-    if (res.data && res.data.token && res.data.user) {
-      const user = res.data.user;
-      const token = res.data.token;
-
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
-      localStorage.setItem(STORAGE_KEYS.TOKEN, token);
-      sessionStorage.removeItem(STORAGE_KEYS.OTP_SESSION);
-
-      return { user, token };
-    }
-
-    throw new Error(res.data?.message || 'Verification failed. Please check the code and try again.');
   }
 
   // ==========================================
