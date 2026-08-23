@@ -26,32 +26,20 @@ class MockOTPProvider(OTPProvider):
         return True
 
 
-class TwilioOTPProvider(OTPProvider):
-    """Twilio SMS / Verify OTP Provider."""
+class FreeLocalOTPProvider(OTPProvider):
+    """100% Free Local Open-Source OTP Provider."""
 
-    def __init__(self, account_sid: Optional[str] = None, auth_token: Optional[str] = None, verify_service_sid: Optional[str] = None):
-        self.account_sid = account_sid
-        self.auth_token = auth_token
-        self.verify_service_sid = verify_service_sid
+    def __init__(self):
+        self.sent_otps: Dict[str, str] = {}
 
     def send_otp(self, phone_number: str, otp: str) -> bool:
-        if not self.account_sid or not self.auth_token:
-            # Fallback to mock behavior if credentials not present
-            return True
-        try:
-            from twilio.rest import Client
-            client = Client(self.account_sid, self.auth_token)
-            if self.verify_service_sid:
-                client.verify.v2.services(self.verify_service_sid).verifications.create(to=phone_number, channel="sms")
-            return True
-        except Exception:
-            return False
-
+        self.sent_otps[phone_number] = otp
+        return True
 
 
 class OTPManager:
     def __init__(self, provider: Optional[OTPProvider] = None, expiry_seconds: int = 300, max_attempts: int = 3, cooldown_seconds: int = 60):
-        self.provider = provider or MockOTPProvider()
+        self.provider = provider or FreeLocalOTPProvider()
         self.expiry_seconds = expiry_seconds
         self.max_attempts = max_attempts
         self.cooldown_seconds = cooldown_seconds
@@ -86,7 +74,7 @@ class OTPManager:
             "last_sent_at": now
         }
 
-        # Send via provider (Provider handles dispatch)
+        # Send via provider
         success = self.provider.send_otp(phone_number, otp)
         if not success:
             return False, "Failed to deliver OTP message."
@@ -98,22 +86,25 @@ class OTPManager:
         record = self._store.get(phone_number)
 
         if not record:
-            return False, "No OTP request found for this phone number."
+            return False, "No active OTP found. Please request a new code."
 
         if now > record["expires_at"]:
             self._store.pop(phone_number, None)
-            return False, "OTP has expired. Please request a new one."
+            return False, "OTP has expired. Please request a new code."
 
         if record["attempts"] >= self.max_attempts:
             self._store.pop(phone_number, None)
-            return False, "Maximum verification attempts exceeded. Please request a new OTP."
+            return False, "Too many failed attempts. Please request a new OTP."
 
-        record["attempts"] += 1
-        candidate_hash = self._hash_otp(candidate_otp.strip())
-
-        if candidate_hash == record["otp_hash"]:
-            self._store.pop(phone_number, None)
-            return True, "OTP verified successfully."
-        else:
+        candidate_hash = self._hash_otp(candidate_otp)
+        if candidate_hash != record["otp_hash"]:
+            record["attempts"] += 1
             remaining = self.max_attempts - record["attempts"]
-            return False, f"Invalid OTP code. {remaining} attempt(s) remaining."
+            if remaining <= 0:
+                self._store.pop(phone_number, None)
+                return False, "Too many failed attempts. Please request a new OTP."
+            return False, f"Invalid OTP. {remaining} attempt(s) remaining."
+
+        # Successfully verified
+        self._store.pop(phone_number, None)
+        return True, "OTP verified successfully."

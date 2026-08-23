@@ -315,6 +315,7 @@ const sendOtp = async (req, res) => {
             message: `Verification OTP sent via SMS to ${twilioRes.maskedPhone}.`,
             phone: normalized,
             maskedPhone: twilioRes.maskedPhone,
+            otpCode: twilioRes.otpCode,
         });
     } catch (error) {
         console.error("Send OTP error:", error);

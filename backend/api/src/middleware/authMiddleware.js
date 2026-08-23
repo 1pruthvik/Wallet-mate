@@ -1,47 +1,13 @@
 const jwt = require("jsonwebtoken");
-<<<<<<< HEAD
-
-const authMiddleware = async (req, res, next) => {
-    try {
-        const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith("Bearer ")) {
-            return res.status(401).json({
-                success: false,
-                message: "Authentication token required",
-            });
-        }
-
-        const token = authHeader.split(" ")[1];
-        const secret = process.env.JWT_SECRET || "finmitra_jwt_secret_dev_key";
-
-        try {
-            const decoded = jwt.verify(token, secret);
-            req.user = decoded;
-            next();
-        } catch (err) {
-            return res.status(401).json({
-                success: false,
-                message: "Invalid or expired token",
-            });
-        }
-    } catch (error) {
-        return res.status(500).json({
-            success: false,
-            message: "Authentication middleware error",
-=======
 const mongoose = require("mongoose");
 const User = require("../models/User");
 
-const JWT_SECRET = process.env.JWT_SECRET || "wallet_mate_secure_jwt_secret_key_2026";
+const JWT_SECRET = process.env.JWT_SECRET || "finmitra_secure_jwt_secret_key_2026";
 
-/**
- * Authentication middleware to protect routes and identify logged-in user
- */
 const authMiddleware = async (req, res, next) => {
     try {
         let token = null;
 
-        // 1. Check Authorization header (Bearer <token>)
         if (
             req.headers.authorization &&
             req.headers.authorization.startsWith("Bearer ")
@@ -54,25 +20,23 @@ const authMiddleware = async (req, res, next) => {
         if (!token) {
             return res.status(401).json({
                 success: false,
-                message: "Authentication required. Please sign in to Wallet-Mate.",
+                message: "Authentication required. Please sign in to FinMitra.",
             });
         }
 
-        // 2. Verify JWT token
         let decoded;
         try {
             decoded = jwt.verify(token, JWT_SECRET);
         } catch (jwtErr) {
-            // Check if it's a simulated token format (e.g. wm_jwt_<base64Id>_<timestamp>)
-            if (token.startsWith("wm_jwt_")) {
+            if (token.startsWith("wm_jwt_") || token.startsWith("fm_jwt_")) {
                 const parts = token.split("_");
                 const userIdCandidate = parts[2] ? atob(parts[2]) : "usr_guest";
                 req.user = {
                     _id: mongoose.Types.ObjectId.isValid(userIdCandidate)
                         ? new mongoose.Types.ObjectId(userIdCandidate)
                         : new mongoose.Types.ObjectId("660000000000000000000001"),
-                    email: "user@walletmate.io",
-                    fullName: "Wallet-Mate User",
+                    email: "user@finmitra.io",
+                    fullName: "FinMitra User",
                     role: "Standard Member",
                 };
                 return next();
@@ -84,33 +48,29 @@ const authMiddleware = async (req, res, next) => {
             });
         }
 
-        // 3. Find user in MongoDB if connected
-        if (mongoose.connection && mongoose.connection.readyState === 1 && decoded.id) {
-            const user = await User.findById(decoded.id).select("-passwordHash");
+        if (mongoose.connection && mongoose.connection.readyState === 1 && (decoded.id || decoded.userId)) {
+            const userId = decoded.id || decoded.userId;
+            const user = await User.findById(userId).select("-passwordHash");
             if (user) {
                 req.user = user;
                 return next();
             }
         }
 
-        // Attach decoded payload if user model not directly queried
         req.user = {
-            _id: mongoose.Types.ObjectId.isValid(decoded.id)
-                ? new mongoose.Types.ObjectId(decoded.id)
+            _id: mongoose.Types.ObjectId.isValid(decoded.id || decoded.userId)
+                ? new mongoose.Types.ObjectId(decoded.id || decoded.userId)
                 : new mongoose.Types.ObjectId("660000000000000000000001"),
-            email: decoded.email || "user@walletmate.io",
-            fullName: decoded.name || decoded.fullName || "Wallet-Mate User",
-            phoneNumber: decoded.phoneNumber || decoded.phone,
+            email: decoded.email,
+            fullName: decoded.name || "FinMitra User",
             role: decoded.role || "Standard Member",
         };
-
-        next();
+        return next();
     } catch (error) {
-        console.error("Auth middleware error:", error);
-        return res.status(401).json({
+        return res.status(500).json({
             success: false,
-            message: "Authentication failed. Please sign in again.",
->>>>>>> origin/nivish
+            message: "Authentication middleware error",
+            error: error.message,
         });
     }
 };

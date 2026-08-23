@@ -242,16 +242,19 @@ class AuthService {
       const res = await apiClient.post<{
         success: boolean;
         message: string;
-        data?: { phone: string; maskedPhone: string; expiresInSeconds: number };
+        otpCode?: string;
+        maskedPhone?: string;
+        data?: { phone: string; maskedPhone: string; expiresInSeconds: number; otpCode?: string };
       }>('/auth/send-otp', {
         phone: cleanDigits,
         countryCode,
         purpose,
       });
 
-      const expiresInSeconds = res.data?.data?.expiresInSeconds || 600;
+      const expiresInSeconds = res.data?.data?.expiresInSeconds || 300;
       const expiresAt = Date.now() + expiresInSeconds * 1000;
-      const maskedPhone = res.data?.data?.maskedPhone || fallbackMasked;
+      const maskedPhone = res.data?.maskedPhone || res.data?.data?.maskedPhone || fallbackMasked;
+      const otpCode = res.data?.otpCode || res.data?.data?.otpCode;
 
       const session: OtpSession = {
         phone: fullPhone,
@@ -259,6 +262,7 @@ class AuthService {
         purpose,
         maskedPhone,
         expiresAt,
+        otpCode,
         tempUserData,
       };
 

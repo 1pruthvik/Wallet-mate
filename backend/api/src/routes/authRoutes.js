@@ -1,12 +1,4 @@
 const express = require("express");
-<<<<<<< HEAD
-const router = express.Router();
-const { register, login, getMe } = require("../controllers/authController");
-const authMiddleware = require("../middleware/authMiddleware");
-
-router.post("/register", register);
-router.post("/login", login);
-=======
 const {
     register,
     login,
@@ -47,7 +39,6 @@ router.post("/reset-password", resetPassword);
 /*
  * GET /api/auth/me (Protected)
  */
->>>>>>> origin/nivish
 router.get("/me", authMiddleware, getMe);
 
 module.exports = router;

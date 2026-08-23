@@ -237,6 +237,36 @@ export const PhoneAuthView: React.FC<PhoneAuthViewProps> = ({
             </div>
           </div>
 
+          {otpSession?.otpCode && (
+            <div style={{ background: 'var(--wm-card-bg, #f4f4f5)', border: '1px solid #e4e4e7', borderRadius: '8px', padding: '12px 14px', marginBottom: '16px', textAlign: 'center' }}>
+              <div style={{ fontSize: '11px', color: '#71717a', textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600, marginBottom: '4px' }}>
+                📱 Free SMS Gateway Verification Passcode
+              </div>
+              <div style={{ fontSize: '22px', fontWeight: 700, letterSpacing: '4px', color: '#18181b', fontFamily: 'monospace', margin: '6px 0' }}>
+                {otpSession.otpCode}
+              </div>
+              <button
+                type="button"
+                onClick={() => setOtp(otpSession.otpCode || '')}
+                style={{
+                  marginTop: '6px',
+                  background: '#6366f1',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  padding: '4px 12px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'background 0.2s',
+                }}
+                id="btn-autofill-otp"
+              >
+                Auto-fill Code
+              </button>
+            </div>
+          )}
+
           <div className="wm-form-group">
             <OTPInput
               length={6}

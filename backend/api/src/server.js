@@ -5,7 +5,6 @@ const morgan = require("morgan");
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const transactionRoutes = require("./routes/transactionRoutes");
-const authRoutes = require("./routes/authRoutes");
 require("dotenv").config();
 
 const app = express();
@@ -19,7 +18,6 @@ app.use(helmet());
 app.use(
     cors({
         origin: (origin, callback) => {
-            // Allow all localhost dev origins (5173, 5174, 5175, etc.) or same-origin
             if (!origin || /^http:\/\/localhost:\d+$/.test(origin) || /^http:\/\/127\.0\.0\.1:\d+$/.test(origin)) {
                 callback(null, true);
             } else {
@@ -40,17 +38,11 @@ app.use(morgan("dev"));
 app.use("/api/auth", authRoutes);
 app.use("/api/transactions", transactionRoutes);
 
-app.use(
-    "/api/auth",
-    authRoutes
-);
-
-
 // Health check
 app.get("/", (req, res) => {
     res.json({
         success: true,
-        message: "Wallet-Mate API is running",
+        message: "FinMitra API is running",
         version: "2.0.0",
         collections: ["users", "transactions"],
     });
@@ -59,7 +51,7 @@ app.get("/", (req, res) => {
 app.get("/api/health", (req, res) => {
     res.json({
         success: true,
-        service: "Wallet-Mate API",
+        service: "FinMitra API",
         status: "healthy",
         database: "MongoDB (users, transactions)",
     });
@@ -81,5 +73,5 @@ app.use((err, req, res, next) => {
  * Start server
  */
 app.listen(PORT, () => {
-    console.log(`Wallet-Mate API running on http://localhost:${PORT}`);
+    console.log(`FinMitra API running on http://localhost:${PORT}`);
 });
