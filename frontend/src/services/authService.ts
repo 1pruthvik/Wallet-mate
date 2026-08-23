@@ -1,4 +1,5 @@
 import type { User, AuthResponse, OtpSession, SignupData } from '../types/auth';
+import apiClient from '../api/client';
 
 const STORAGE_KEYS = {
   USER: 'wallet_mate_auth_user',
@@ -8,10 +9,20 @@ const STORAGE_KEYS = {
   OTP_SESSION: 'wallet_mate_current_otp_session',
 };
 
-// Initial mock database of users
 const DEFAULT_MOCK_USERS: User[] = [
   {
-    id: 'usr_wm_01',
+    id: '660000000000000000000001',
+    name: 'Nivish',
+    email: 'nivish@walletmate.io',
+    phone: '+919876543210',
+    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+    role: 'Standard Member',
+    authProvider: 'email',
+    isPhoneVerified: true,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: '660000000000000000000002',
     name: 'Alex Morgan',
     email: 'alex.morgan@walletmate.io',
     phone: '+919876543210',
@@ -20,23 +31,12 @@ const DEFAULT_MOCK_USERS: User[] = [
     authProvider: 'email',
     isPhoneVerified: true,
     createdAt: new Date().toISOString(),
-  },
-  {
-    id: 'usr_wm_02',
-    name: 'Dev User',
-    email: 'demo@walletmate.io',
-    phone: '+919876543210',
-    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-    role: 'Standard Member',
-    authProvider: 'email',
-    isPhoneVerified: true,
-    createdAt: new Date().toISOString(),
   }
 ];
 
 class AuthService {
   public isConfiguredForBackend(): boolean {
-    return Boolean(import.meta.env.VITE_API_URL);
+    return Boolean(import.meta.env.VITE_API_URL || 'http://localhost:5000/api');
   }
 
   private getStoredUsers(): User[] {
@@ -60,10 +60,6 @@ class AuthService {
     }
   }
 
-  private simulateDelay(ms: number = 450): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
   private maskPhoneNumber(countryCode: string, phone: string): string {
     const cleanPhone = phone.replace(/\D/g, '');
     if (cleanPhone.length <= 4) return `${countryCode} ${cleanPhone}`;
@@ -77,8 +73,6 @@ class AuthService {
   // EMAIL / PASSWORD LOGIN
   // ==========================================
   async loginWithEmail(email: string, password?: string, rememberMe = true): Promise<AuthResponse> {
-    await this.simulateDelay(450);
-
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@')) {
       throw new Error('Please enter a valid email address.');
@@ -88,13 +82,43 @@ class AuthService {
       throw new Error('Password must be at least 6 characters.');
     }
 
+    // Try backend MongoDB API first
+    try {
+      const res = await apiClient.post<{ success: boolean; token: string; user: User }>('/auth/login', {
+        email: cleanEmail,
+        password,
+      });
+
+      if (res.data && res.data.token && res.data.user) {
+        const user = res.data.user;
+        const token = res.data.token;
+
+        if (rememberMe) {
+          localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+          localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+          localStorage.setItem(STORAGE_KEYS.REMEMBER, 'true');
+        } else {
+          sessionStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+          sessionStorage.setItem(STORAGE_KEYS.TOKEN, token);
+          localStorage.removeItem(STORAGE_KEYS.REMEMBER);
+        }
+
+        return { user, token, expiresIn: 86400 * 7 };
+      }
+    } catch (apiErr: any) {
+      if (apiErr.response && apiErr.response.data?.message) {
+        throw new Error(apiErr.response.data.message);
+      }
+      console.warn('Backend login endpoint unavailable, using offline fallback:', apiErr.message);
+    }
+
+    // Offline / Mock Fallback
     const users = this.getStoredUsers();
     let user = users.find((u) => u.email.toLowerCase() === cleanEmail);
 
     if (!user) {
-      // If demo testing with any credentials, auto-provision user
       user = {
-        id: `usr_${Date.now()}`,
+        id: `66000000000000000000${Date.now().toString().slice(-4)}`,
         name: cleanEmail.split('@')[0].replace('.', ' ').replace(/^./, (str) => str.toUpperCase()),
         email: cleanEmail,
         avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${cleanEmail}`,
@@ -126,8 +150,6 @@ class AuthService {
   // SIGNUP WITH EMAIL
   // ==========================================
   async signup(signupData: SignupData): Promise<AuthResponse> {
-    await this.simulateDelay(500);
-
     const cleanEmail = signupData.email.trim().toLowerCase();
     const cleanName = signupData.name.trim();
 
@@ -143,6 +165,32 @@ class AuthService {
       throw new Error('Password must be at least 8 characters long.');
     }
 
+    // Try backend MongoDB API first
+    try {
+      const res = await apiClient.post<{ success: boolean; token: string; user: User }>('/auth/register', {
+        fullName: cleanName,
+        email: cleanEmail,
+        password: signupData.password,
+        phoneNumber: signupData.phone,
+      });
+
+      if (res.data && res.data.token && res.data.user) {
+        const user = res.data.user;
+        const token = res.data.token;
+
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+        localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+
+        return { user, token, expiresIn: 86400 * 7 };
+      }
+    } catch (apiErr: any) {
+      if (apiErr.response && apiErr.response.data?.message) {
+        throw new Error(apiErr.response.data.message);
+      }
+      console.warn('Backend register endpoint unavailable, using offline fallback:', apiErr.message);
+    }
+
+    // Offline / Mock Fallback
     const users = this.getStoredUsers();
     const existing = users.find((u) => u.email.toLowerCase() === cleanEmail);
 
@@ -151,7 +199,7 @@ class AuthService {
     }
 
     const newUser: User = {
-      id: `usr_${Date.now()}`,
+      id: `66000000000000000000${Date.now().toString().slice(-4)}`,
       name: cleanName,
       email: cleanEmail,
       phone: signupData.phone || undefined,
@@ -181,8 +229,6 @@ class AuthService {
     purpose: 'login' | 'signup' | 'password-reset' = 'login',
     tempUserData?: Partial<SignupData>
   ): Promise<OtpSession> {
-    await this.simulateDelay(400);
-
     const cleanDigits = phone.replace(/\D/g, '');
     if (cleanDigits.length < 7 || cleanDigits.length > 15) {
       throw new Error('Please enter a valid phone number.');
@@ -190,8 +236,22 @@ class AuthService {
 
     const fullPhone = `${countryCode}${cleanDigits}`;
     const maskedPhone = this.maskPhoneNumber(countryCode, cleanDigits);
-    // Predictable test code 123456 or random code
-    const generatedOtp = '123456';
+    let generatedOtp = '123456';
+
+    try {
+      const res = await apiClient.post<{ success: boolean; data: any }>('/auth/send-otp', {
+        phone: cleanDigits,
+        countryCode,
+        purpose,
+      });
+
+      if (res.data?.data?.demoCode) {
+        generatedOtp = res.data.data.demoCode;
+      }
+    } catch (apiErr: any) {
+      console.warn('Backend OTP endpoint offline, using local OTP generation.');
+    }
+
     const expiresAt = Date.now() + 3 * 60 * 1000; // 3 minutes
 
     const session: OtpSession = {
@@ -206,7 +266,7 @@ class AuthService {
 
     sessionStorage.setItem(STORAGE_KEYS.OTP_SESSION, JSON.stringify(session));
 
-    // Dispatch a subtle notification event for UI demo feedback
+    // Dispatch notification event for UI toast
     window.dispatchEvent(
       new CustomEvent('wallet-mate-otp-sent', {
         detail: {
@@ -226,17 +286,41 @@ class AuthService {
     purpose: 'login' | 'signup' | 'password-reset' = 'login',
     tempUserData?: Partial<SignupData>
   ): Promise<AuthResponse | { verified: true }> {
-    await this.simulateDelay(500);
-
     if (otp.length !== 6 || !/^\d{6}$/.test(otp)) {
       throw new Error('Please enter the complete 6-digit verification code.');
     }
 
-    // Accept either 123456 or any 6-digit test code in mock environment
-    const isMockValid = otp === '123456' || otp === '789012' || otp.length === 6;
+    // Try backend MongoDB verify API
+    try {
+      const res = await apiClient.post<{ success: boolean; token: string; user: User; verified?: boolean }>(
+        '/auth/verify-otp',
+        {
+          phone,
+          otp,
+          name: tempUserData?.name,
+          email: tempUserData?.email,
+          purpose,
+        }
+      );
 
-    if (!isMockValid) {
-      throw new Error('Invalid OTP. Please check the code and try again.');
+      if (purpose === 'password-reset') {
+        return { verified: true };
+      }
+
+      if (res.data && res.data.token && res.data.user) {
+        const user = res.data.user;
+        const token = res.data.token;
+
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+        localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+        sessionStorage.removeItem(STORAGE_KEYS.OTP_SESSION);
+
+        return { user, token };
+      }
+    } catch (apiErr: any) {
+      if (apiErr.response && apiErr.response.data?.message) {
+        throw new Error(apiErr.response.data.message);
+      }
     }
 
     if (purpose === 'password-reset') {
@@ -247,11 +331,11 @@ class AuthService {
     let user = users.find((u) => u.phone === phone);
 
     if (!user) {
-      const name = tempUserData?.name || (tempUserData?.email ? tempUserData.email.split('@')[0] : 'Wallet-mate Member');
+      const name = tempUserData?.name || (tempUserData?.email ? tempUserData.email.split('@')[0] : 'Wallet-Mate Member');
       const email = tempUserData?.email || `user_${phone.replace(/\D/g, '').slice(-4)}@walletmate.io`;
 
       user = {
-        id: `usr_${Date.now()}`,
+        id: `66000000000000000000${Date.now().toString().slice(-4)}`,
         name,
         email,
         phone,
@@ -280,7 +364,6 @@ class AuthService {
   // PASSWORD RESET
   // ==========================================
   async sendPasswordResetEmail(email: string): Promise<{ success: boolean; message: string }> {
-    await this.simulateDelay(400);
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail || !cleanEmail.includes('@')) {
       throw new Error('Please enter a valid email address.');
@@ -293,9 +376,18 @@ class AuthService {
   }
 
   async resetPassword(identifier: string, newPassword: string): Promise<{ success: boolean }> {
-    await this.simulateDelay(450);
     if (!newPassword || newPassword.length < 8) {
       throw new Error('Password must be at least 8 characters long.');
+    }
+
+    try {
+      await apiClient.post('/auth/reset-password', {
+        identifier,
+        newPassword,
+      });
+      return { success: true };
+    } catch (apiErr: any) {
+      console.warn('Backend reset password offline fallback.');
     }
 
     const users = this.getStoredUsers();
@@ -304,7 +396,6 @@ class AuthService {
     );
 
     if (user) {
-      // In a real app we'd update hashed password in backend
       this.saveStoredUsers(users);
     }
 
@@ -315,10 +406,8 @@ class AuthService {
   // GOOGLE OAUTH SIMULATION / INTEGRATION
   // ==========================================
   async signInWithGoogle(): Promise<AuthResponse> {
-    await this.simulateDelay(600);
-
     const googleUser: User = {
-      id: `usr_google_${Date.now()}`,
+      id: '660000000000000000000003',
       name: 'Alex Morgan',
       email: 'alex.morgan@gmail.com',
       avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
@@ -339,11 +428,8 @@ class AuthService {
   // PASSKEY / WEBAUTHN SIMULATION & INTEGRATION
   // ==========================================
   async signInWithPasskey(): Promise<AuthResponse> {
-    await this.simulateDelay(700);
-
-    // Passkey verification simulation
     const passkeyUser: User = {
-      id: `usr_passkey_${Date.now()}`,
+      id: '660000000000000000000004',
       name: 'Biometric Authenticated User',
       email: 'biometric.user@walletmate.io',
       avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
@@ -364,8 +450,6 @@ class AuthService {
   // ENTERPRISE SSO
   // ==========================================
   async signInWithSSO(workEmailOrDomain: string): Promise<AuthResponse> {
-    await this.simulateDelay(600);
-
     const domain = workEmailOrDomain.includes('@')
       ? workEmailOrDomain.split('@')[1]
       : workEmailOrDomain;
@@ -376,7 +460,7 @@ class AuthService {
 
     const companyName = domain.split('.')[0].toUpperCase();
     const ssoUser: User = {
-      id: `usr_sso_${Date.now()}`,
+      id: '660000000000000000000005',
       name: `${companyName} Corporate User`,
       email: workEmailOrDomain.includes('@') ? workEmailOrDomain : `employee@${domain}`,
       avatar: `https://api.dicebear.com/7.x/shapes/svg?seed=${domain}`,

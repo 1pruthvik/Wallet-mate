@@ -2,24 +2,40 @@ import apiClient from "./client";
 
 export interface Transaction {
     _id?: string;
+    id?: string;
+    userId?: string;
+    source?: {
+        type?: "pdf" | "manual" | "csv" | "api";
+        fileName?: string;
+    };
     merchant: string;
     amount: number;
-    type: "income" | "expense";
+    type: "income" | "expense" | "transfer" | "refund";
     category: string;
     date: string;
+    transactionDate?: string;
     description?: string;
+    paymentMethod?: string;
+    accountNumberMasked?: string;
+    referenceNumber?: string;
+    balanceAfterTransaction?: number | null;
+    transactionHash?: string;
+    status?: string;
+    notes?: string;
     createdAt?: string;
     updatedAt?: string;
 }
 
 interface TransactionsResponse {
     success: boolean;
+    count?: number;
     transactions: Transaction[];
 }
 
 interface TransactionResponse {
     success: boolean;
     transaction: Transaction;
+    message?: string;
 }
 
 interface ParseStatementResponse {
@@ -32,83 +48,98 @@ interface ParseStatementResponse {
 
 interface ImportBatchResponse {
     success: boolean;
-    count: number;
+    count?: number;
     message: string;
+    data?: {
+        fileName: string;
+        totalExtracted: number;
+        newTransactions: number;
+        duplicatesSkipped: number;
+        transactions: Transaction[];
+    };
     transactions: Transaction[];
 }
 
 const FALLBACK_TRANSACTIONS: Transaction[] = [
     {
-        _id: "tx_fb_01",
+        _id: "660000000000000000001001",
         merchant: "Tech Corp (Salary)",
         amount: 85000,
         type: "income",
         category: "Salary",
         date: new Date(Date.now() - 2 * 86400000).toISOString(),
         description: "Monthly salary credit",
+        paymentMethod: "Bank Transfer",
     },
     {
-        _id: "tx_fb_02",
+        _id: "660000000000000000001002",
         merchant: "Swiggy",
         amount: 640,
         type: "expense",
         category: "Food",
         date: new Date(Date.now() - 1 * 86400000).toISOString(),
         description: "Dinner order",
+        paymentMethod: "UPI",
     },
     {
-        _id: "tx_fb_03",
+        _id: "660000000000000000001003",
         merchant: "Amazon.in",
         amount: 2499,
         type: "expense",
         category: "Shopping",
         date: new Date(Date.now() - 3 * 86400000).toISOString(),
         description: "Electronics & Accessories",
+        paymentMethod: "Card",
     },
     {
-        _id: "tx_fb_04",
+        _id: "660000000000000000001004",
         merchant: "Cult.fit",
         amount: 1499,
         type: "expense",
         category: "Health",
         date: new Date(Date.now() - 5 * 86400000).toISOString(),
         description: "Monthly Fitness pass",
+        paymentMethod: "UPI",
     },
     {
-        _id: "tx_fb_05",
+        _id: "660000000000000000001005",
         merchant: "Mutual Fund SIP",
         amount: 10000,
         type: "expense",
         category: "Investment",
         date: new Date(Date.now() - 6 * 86400000).toISOString(),
         description: "Nifty 50 Index Fund SIP",
+        paymentMethod: "ACH / Auto-Debit",
     },
     {
-        _id: "tx_fb_06",
+        _id: "660000000000000000001006",
         merchant: "Shell Fuel Station",
         amount: 2100,
         type: "expense",
         category: "Transport",
         date: new Date(Date.now() - 7 * 86400000).toISOString(),
         description: "Petrol refill",
+        paymentMethod: "Card",
     },
     {
-        _id: "tx_fb_07",
-        merchant: "Freelance Project",
+        _id: "660000000000000000001007",
+        merchant: "Freelance Client UI Project",
         amount: 24500,
         type: "income",
         category: "Freelance",
         date: new Date(Date.now() - 10 * 86400000).toISOString(),
         description: "Design consultation payout",
+        paymentMethod: "Bank Transfer",
     },
     {
-        _id: "tx_fb_08",
+        _id: "660000000000000000001008",
         merchant: "Netflix",
         amount: 499,
         type: "expense",
         category: "Entertainment",
         date: new Date(Date.now() - 12 * 86400000).toISOString(),
         description: "Monthly Subscription",
+        paymentMethod: "UPI",
     }
 ];
 
@@ -145,6 +176,24 @@ export const createTransaction = async (
     }
 };
 
+export const updateTransaction = async (
+    id: string,
+    updates: Partial<Transaction>
+): Promise<Transaction> => {
+    const response = await apiClient.put<TransactionResponse>(
+        `/transactions/${id}`,
+        updates
+    );
+    return response.data.transaction;
+};
+
+export const deleteTransaction = async (id: string): Promise<boolean> => {
+    const response = await apiClient.delete<{ success: boolean }>(
+        `/transactions/${id}`
+    );
+    return response.data.success;
+};
+
 export const parseBankStatement = async (
     file: File
 ): Promise<{ count: number; fileName: string; transactions: Omit<Transaction, "_id">[] }> => {
@@ -169,20 +218,30 @@ export const parseBankStatement = async (
 };
 
 export const importBatchTransactions = async (
-    transactions: Omit<Transaction, "_id">[]
-): Promise<Transaction[]> => {
+    transactions: Omit<Transaction, "_id">[],
+    fileName?: string
+): Promise<{ count: number; message: string; transactions: Transaction[] }> => {
     try {
         const response = await apiClient.post<ImportBatchResponse>(
             "/transactions/import",
-            { transactions }
+            { transactions, fileName }
         );
-        return response.data.transactions;
-    } catch (error) {
+        return {
+            count: response.data.count || response.data.data?.newTransactions || response.data.transactions?.length || 0,
+            message: response.data.message || "Import completed successfully.",
+            transactions: response.data.transactions || response.data.data?.transactions || [],
+        };
+    } catch (error: any) {
+        console.warn("Backend import offline fallback:", error.message);
         const imported: Transaction[] = transactions.map((t, idx) => ({
             ...t,
             _id: `tx_imported_${Date.now()}_${idx}`,
             createdAt: new Date().toISOString(),
         }));
-        return imported;
+        return {
+            count: imported.length,
+            message: `Imported ${imported.length} transactions locally.`,
+            transactions: imported,
+        };
     }
 };

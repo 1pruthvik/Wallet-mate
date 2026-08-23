@@ -1,144 +1,248 @@
 const mongoose = require("mongoose");
+const crypto = require("crypto");
 const Transaction = require("../models/Transaction");
 const { parseStatementBuffer } = require("../services/statementParser");
 
-// In-memory transaction seed for smooth local development without MongoDB requirement
-let inMemoryTransactions = [
-    {
-        _id: "tx_mock_01",
-        merchant: "Tech Corp Inc (Salary)",
-        amount: 85000,
-        type: "income",
-        category: "Salary",
-        date: new Date(Date.now() - 2 * 86400000).toISOString(),
-        description: "Monthly salary credit",
-    },
-    {
-        _id: "tx_mock_02",
-        merchant: "Swiggy",
-        amount: 640,
-        type: "expense",
-        category: "Food",
-        date: new Date(Date.now() - 1 * 86400000).toISOString(),
-        description: "Dinner order",
-    },
-    {
-        _id: "tx_mock_03",
-        merchant: "Amazon.in",
-        amount: 2499,
-        type: "expense",
-        category: "Shopping",
-        date: new Date(Date.now() - 3 * 86400000).toISOString(),
-        description: "Electronics & Accessories",
-    },
-    {
-        _id: "tx_mock_04",
-        merchant: "Cult.fit",
-        amount: 1499,
-        type: "expense",
-        category: "Health",
-        date: new Date(Date.now() - 5 * 86400000).toISOString(),
-        description: "Monthly Fitness pass",
-    },
-    {
-        _id: "tx_mock_05",
-        merchant: "Upstox / Zerodha SIP",
-        amount: 10000,
-        type: "expense",
-        category: "Investment",
-        date: new Date(Date.now() - 6 * 86400000).toISOString(),
-        description: "Nifty 50 Index Fund SIP",
-    },
-    {
-        _id: "tx_mock_06",
-        merchant: "Shell Fuel Station",
-        amount: 2100,
-        type: "expense",
-        category: "Transport",
-        date: new Date(Date.now() - 7 * 86400000).toISOString(),
-        description: "Petrol refill",
-    },
-    {
-        _id: "tx_mock_07",
-        merchant: "Freelance Client UI Project",
-        amount: 24500,
-        type: "income",
-        category: "Freelance",
-        date: new Date(Date.now() - 10 * 86400000).toISOString(),
-        description: "Design consultation payout",
-    },
-    {
-        _id: "tx_mock_08",
-        merchant: "Netflix",
-        amount: 499,
-        type: "expense",
-        category: "Entertainment",
-        date: new Date(Date.now() - 12 * 86400000).toISOString(),
-        description: "Monthly Subscription",
-    }
-];
-
 const isDbConnected = () => mongoose.connection && mongoose.connection.readyState === 1;
 
+// In-memory fallback per user if MongoDB is disconnected
+let inMemoryTransactions = [];
+
+// Helper to compute deterministic transaction hash for deduplication
+const computeTransactionHash = (userId, dateStr, merchant, amount, type, referenceNumber, description) => {
+    const dStr = dateStr ? new Date(dateStr).toISOString().split("T")[0] : "";
+    const raw = `${userId}_${dStr}_${merchant}_${Number(amount)}_${type}_${referenceNumber || description || ""}`;
+    return crypto.createHash("sha256").update(raw).digest("hex");
+};
+
 /*
- * Get all transactions
+ * GET /api/transactions
+ * Retrieve all transactions belonging strictly to the authenticated user
  */
 const getTransactions = async (req, res) => {
     try {
+        const userId = req.user?._id;
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: "User authentication required",
+            });
+        }
+
         if (isDbConnected()) {
-            const transactions = await Transaction.find().sort({ date: -1 });
+            const transactions = await Transaction.find({ userId })
+                .sort({ date: -1, transactionDate: -1, createdAt: -1 });
+
             return res.json({
                 success: true,
+                count: transactions.length,
                 transactions,
             });
         }
 
-        // Return in-memory transactions if MongoDB is not active
+        // In-memory user-filtered transactions
+        const userTxs = inMemoryTransactions.filter(
+            (tx) => tx.userId?.toString() === userId.toString()
+        );
+
         return res.json({
             success: true,
-            transactions: inMemoryTransactions,
+            count: userTxs.length,
+            transactions: userTxs,
         });
     } catch (error) {
-        console.error("Get transactions fallback error:", error);
-        return res.json({
-            success: true,
-            transactions: inMemoryTransactions,
+        console.error("Get transactions error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch transactions",
+            error: error.message,
         });
     }
 };
 
 /*
- * Create a single transaction
+ * GET /api/transactions/:id
+ * Retrieve a specific transaction with ownership check
  */
-const createTransaction = async (req, res) => {
+const getTransactionById = async (req, res) => {
     try {
+        const userId = req.user?._id;
+        const { id } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid transaction ID format",
+            });
+        }
+
         if (isDbConnected()) {
-            const transaction = await Transaction.create(req.body);
-            return res.status(201).json({
+            const transaction = await Transaction.findOne({ _id: id, userId });
+            if (!transaction) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Transaction not found or access denied.",
+                });
+            }
+
+            return res.json({
                 success: true,
                 transaction,
             });
         }
 
+        const tx = inMemoryTransactions.find(
+            (t) => t._id?.toString() === id && t.userId?.toString() === userId.toString()
+        );
+
+        if (!tx) {
+            return res.status(404).json({
+                success: false,
+                message: "Transaction not found",
+            });
+        }
+
+        return res.json({
+            success: true,
+            transaction: tx,
+        });
+    } catch (error) {
+        console.error("Get transaction by ID error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to fetch transaction",
+            error: error.message,
+        });
+    }
+};
+
+/*
+ * POST /api/transactions
+ * Create a single transaction linked to authenticated user
+ */
+const createTransaction = async (req, res) => {
+    try {
+        const userId = req.user?._id;
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: "Authentication required",
+            });
+        }
+
+        const {
+            merchant,
+            amount,
+            type,
+            category,
+            date,
+            transactionDate,
+            description,
+            paymentMethod,
+            accountNumberMasked,
+            referenceNumber,
+            balanceAfterTransaction,
+            notes,
+        } = req.body;
+
+        const numAmount = Number(amount);
+        if (!numAmount || numAmount <= 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Transaction amount must be greater than zero.",
+            });
+        }
+
+        if (!merchant || !merchant.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: "Merchant name is required.",
+            });
+        }
+
+        const targetDate = date ? new Date(date) : (transactionDate ? new Date(transactionDate) : new Date());
+        const targetType = type === "income" ? "income" : "expense";
+        const targetCategory = (category || "Other").trim();
+        const targetDescription = (description || merchant).trim();
+
+        const hash = computeTransactionHash(
+            userId.toString(),
+            targetDate.toISOString(),
+            merchant.trim(),
+            numAmount,
+            targetType,
+            referenceNumber,
+            targetDescription
+        );
+
+        if (isDbConnected()) {
+            // Deduplication check
+            const duplicate = await Transaction.findOne({ userId, transactionHash: hash });
+            if (duplicate) {
+                return res.status(409).json({
+                    success: false,
+                    message: "A duplicate transaction already exists for this date, merchant, and amount.",
+                    transaction: duplicate,
+                });
+            }
+
+            const transaction = await Transaction.create({
+                userId,
+                source: {
+                    type: "manual",
+                    fileName: "",
+                },
+                transactionDate: targetDate,
+                date: targetDate,
+                description: targetDescription,
+                merchant: merchant.trim(),
+                type: targetType,
+                category: targetCategory,
+                amount: numAmount,
+                currency: "INR",
+                paymentMethod: paymentMethod || "UPI",
+                accountNumberMasked: accountNumberMasked || "",
+                referenceNumber: referenceNumber || "",
+                balanceAfterTransaction: balanceAfterTransaction ? Number(balanceAfterTransaction) : null,
+                transactionHash: hash,
+                notes: notes || "",
+            });
+
+            return res.status(201).json({
+                success: true,
+                message: "Transaction created successfully.",
+                transaction,
+            });
+        }
+
+        // In-memory fallback
         const newTx = {
-            _id: `tx_${Date.now()}`,
-            merchant: req.body.merchant || "Unknown Merchant",
-            amount: Number(req.body.amount) || 0,
-            type: req.body.type === "income" ? "income" : "expense",
-            category: req.body.category || "General",
-            date: req.body.date ? new Date(req.body.date).toISOString() : new Date().toISOString(),
-            description: req.body.description || "",
+            _id: new mongoose.Types.ObjectId(),
+            userId,
+            source: { type: "manual" },
+            transactionDate: targetDate,
+            date: targetDate,
+            description: targetDescription,
+            merchant: merchant.trim(),
+            type: targetType,
+            category: targetCategory,
+            amount: numAmount,
+            currency: "INR",
+            paymentMethod: paymentMethod || "UPI",
+            transactionHash: hash,
+            createdAt: new Date(),
         };
 
         inMemoryTransactions.unshift(newTx);
 
         return res.status(201).json({
             success: true,
+            message: "Transaction created successfully.",
             transaction: newTx,
         });
     } catch (error) {
         console.error("Create transaction error:", error);
-        res.status(400).json({
+        return res.status(400).json({
             success: false,
             message: "Failed to create transaction",
             error: error.message,
@@ -147,14 +251,141 @@ const createTransaction = async (req, res) => {
 };
 
 /*
- * Parse bank statement PDF/file and return extracted transactions for preview
+ * PUT /api/transactions/:id
+ * Update an existing transaction with ownership verification
+ */
+const updateTransaction = async (req, res) => {
+    try {
+        const userId = req.user?._id;
+        const { id } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid transaction ID format",
+            });
+        }
+
+        if (isDbConnected()) {
+            const updated = await Transaction.findOneAndUpdate(
+                { _id: id, userId },
+                { $set: req.body },
+                { new: true, runValidators: true }
+            );
+
+            if (!updated) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Transaction not found or access denied.",
+                });
+            }
+
+            return res.json({
+                success: true,
+                message: "Transaction updated successfully.",
+                transaction: updated,
+            });
+        }
+
+        const index = inMemoryTransactions.findIndex(
+            (t) => t._id?.toString() === id && t.userId?.toString() === userId.toString()
+        );
+
+        if (index === -1) {
+            return res.status(404).json({
+                success: false,
+                message: "Transaction not found or access denied.",
+            });
+        }
+
+        inMemoryTransactions[index] = {
+            ...inMemoryTransactions[index],
+            ...req.body,
+            updatedAt: new Date(),
+        };
+
+        return res.json({
+            success: true,
+            message: "Transaction updated successfully.",
+            transaction: inMemoryTransactions[index],
+        });
+    } catch (error) {
+        console.error("Update transaction error:", error);
+        return res.status(400).json({
+            success: false,
+            message: "Failed to update transaction",
+            error: error.message,
+        });
+    }
+};
+
+/*
+ * DELETE /api/transactions/:id
+ * Delete a transaction with strict ownership check
+ */
+const deleteTransaction = async (req, res) => {
+    try {
+        const userId = req.user?._id;
+        const { id } = req.params;
+
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid transaction ID format",
+            });
+        }
+
+        if (isDbConnected()) {
+            const deleted = await Transaction.findOneAndDelete({ _id: id, userId });
+            if (!deleted) {
+                return res.status(404).json({
+                    success: false,
+                    message: "Transaction not found or access denied.",
+                });
+            }
+
+            return res.json({
+                success: true,
+                message: "Transaction deleted successfully.",
+            });
+        }
+
+        const prevLen = inMemoryTransactions.length;
+        inMemoryTransactions = inMemoryTransactions.filter(
+            (t) => !(t._id?.toString() === id && t.userId?.toString() === userId.toString())
+        );
+
+        if (inMemoryTransactions.length === prevLen) {
+            return res.status(404).json({
+                success: false,
+                message: "Transaction not found or access denied.",
+            });
+        }
+
+        return res.json({
+            success: true,
+            message: "Transaction deleted successfully.",
+        });
+    } catch (error) {
+        console.error("Delete transaction error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to delete transaction",
+            error: error.message,
+        });
+    }
+};
+
+/*
+ * POST /api/transactions/parse-statement
+ * Parse uploaded PDF bank statement and return extracted preview records
  */
 const parseStatement = async (req, res) => {
     try {
         if (!req.file) {
             return res.status(400).json({
                 success: false,
-                message: "No statement file uploaded. Please upload a PDF bank statement.",
+                message: "No statement file uploaded. Please upload a valid PDF bank statement.",
             });
         }
 
@@ -164,7 +395,7 @@ const parseStatement = async (req, res) => {
 
         const transactions = await parseStatementBuffer(buffer, mimetype, originalname);
 
-        res.json({
+        return res.json({
             success: true,
             count: transactions.length,
             fileName: originalname,
@@ -172,20 +403,28 @@ const parseStatement = async (req, res) => {
         });
     } catch (error) {
         console.error("Statement parsing error:", error);
-
-        res.status(422).json({
+        return res.status(422).json({
             success: false,
-            message: error.message || "Failed to process the bank statement.",
+            message: error.message || "Failed to process the bank statement PDF.",
         });
     }
 };
 
 /*
- * Batch import verified transactions into MongoDB / In-memory
+ * POST /api/transactions/import
+ * Batch import extracted PDF transactions into MongoDB with user ownership and deduplication
  */
 const importTransactions = async (req, res) => {
     try {
-        const { transactions } = req.body;
+        const userId = req.user?._id;
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: "Authentication required to import transactions.",
+            });
+        }
+
+        const { transactions, fileName } = req.body;
 
         if (!Array.isArray(transactions) || transactions.length === 0) {
             return res.status(400).json({
@@ -194,45 +433,133 @@ const importTransactions = async (req, res) => {
             });
         }
 
-        const formatted = transactions.map((t) => ({
-            merchant: t.merchant || "Unknown Merchant",
-            amount: Number(t.amount) || 0,
-            type: t.type === "income" ? "income" : "expense",
-            category: t.category || "Other",
-            date: t.date ? new Date(t.date) : new Date(),
-            description: t.description || "",
-        }));
+        let newCount = 0;
+        let duplicateCount = 0;
+        const documentsToInsert = [];
 
+        // 1. Fetch existing hashes for this user to check duplicates
+        let existingHashSet = new Set();
         if (isDbConnected()) {
-            const imported = await Transaction.insertMany(formatted);
-            return res.status(201).json({
-                success: true,
-                count: imported.length,
-                message: `Successfully imported ${imported.length} transactions.`,
-                transactions: imported,
+            const existing = await Transaction.find({ userId }).select("transactionHash");
+            existingHashSet = new Set(existing.map((t) => t.transactionHash).filter(Boolean));
+        } else {
+            inMemoryTransactions
+                .filter((t) => t.userId?.toString() === userId.toString())
+                .forEach((t) => {
+                    if (t.transactionHash) existingHashSet.add(t.transactionHash);
+                });
+        }
+
+        // 2. Prepare and deduplicate transactions
+        for (const t of transactions) {
+            const amount = Math.abs(Number(t.amount)) || 0;
+            if (amount <= 0) continue;
+
+            const merchant = (t.merchant || "Unknown Merchant").trim();
+            const type = t.type === "income" ? "income" : "expense";
+            const category = (t.category || "Other").trim();
+            const dateObj = t.date ? new Date(t.date) : new Date();
+            const description = (t.description || merchant).trim();
+            const referenceNumber = (t.referenceNumber || "").trim();
+
+            const hash = computeTransactionHash(
+                userId.toString(),
+                dateObj.toISOString(),
+                merchant,
+                amount,
+                type,
+                referenceNumber,
+                description
+            );
+
+            if (existingHashSet.has(hash)) {
+                duplicateCount++;
+                continue;
+            }
+
+            existingHashSet.add(hash);
+            newCount++;
+
+            documentsToInsert.push({
+                userId,
+                source: {
+                    type: "pdf",
+                    fileName: fileName || "bank_statement.pdf",
+                },
+                transactionDate: dateObj,
+                date: dateObj,
+                description,
+                merchant,
+                type,
+                category,
+                amount,
+                currency: "INR",
+                paymentMethod: t.paymentMethod || "Bank Transfer",
+                accountNumberMasked: t.accountNumberMasked || "",
+                referenceNumber,
+                balanceAfterTransaction: t.balanceAfterTransaction ? Number(t.balanceAfterTransaction) : null,
+                transactionHash: hash,
+                status: "completed",
             });
         }
 
-        const withIds = formatted.map((tx, idx) => ({
-            ...tx,
-            _id: `tx_imported_${Date.now()}_${idx}`,
-            date: tx.date.toISOString(),
-        }));
+        // 3. Save to MongoDB
+        if (isDbConnected() && documentsToInsert.length > 0) {
+            const inserted = await Transaction.insertMany(documentsToInsert);
+            return res.status(201).json({
+                success: true,
+                message: `Import complete. ${newCount} new transactions added, ${duplicateCount} duplicates skipped.`,
+                data: {
+                    fileName: fileName || "statement.pdf",
+                    totalExtracted: transactions.length,
+                    newTransactions: newCount,
+                    duplicatesSkipped: duplicateCount,
+                    transactions: inserted,
+                },
+                transactions: inserted,
+            });
+        }
 
-        inMemoryTransactions = [...withIds, ...inMemoryTransactions];
+        // In-memory fallback
+        if (documentsToInsert.length > 0) {
+            const inMemDocs = documentsToInsert.map((d) => ({
+                ...d,
+                _id: new mongoose.Types.ObjectId(),
+                createdAt: new Date(),
+            }));
+            inMemoryTransactions = [...inMemDocs, ...inMemoryTransactions];
 
-        return res.status(201).json({
+            return res.status(201).json({
+                success: true,
+                message: `Import complete. ${newCount} new transactions added, ${duplicateCount} duplicates skipped.`,
+                data: {
+                    fileName: fileName || "statement.pdf",
+                    totalExtracted: transactions.length,
+                    newTransactions: newCount,
+                    duplicatesSkipped: duplicateCount,
+                    transactions: inMemDocs,
+                },
+                transactions: inMemDocs,
+            });
+        }
+
+        return res.json({
             success: true,
-            count: withIds.length,
-            message: `Successfully imported ${withIds.length} transactions.`,
-            transactions: withIds,
+            message: `All ${transactions.length} transactions were already imported (skipped duplicates).`,
+            data: {
+                fileName: fileName || "statement.pdf",
+                totalExtracted: transactions.length,
+                newTransactions: 0,
+                duplicatesSkipped: duplicateCount,
+                transactions: [],
+            },
+            transactions: [],
         });
     } catch (error) {
         console.error("Import transactions error:", error);
-
-        res.status(500).json({
+        return res.status(500).json({
             success: false,
-            message: "Failed to import transactions to database.",
+            message: "Failed to import transactions.",
             error: error.message,
         });
     }
@@ -240,7 +567,10 @@ const importTransactions = async (req, res) => {
 
 module.exports = {
     getTransactions,
+    getTransactionById,
     createTransaction,
+    updateTransaction,
+    deleteTransaction,
     parseStatement,
     importTransactions,
 };
