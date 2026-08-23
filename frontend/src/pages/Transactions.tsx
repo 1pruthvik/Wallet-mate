@@ -1,228 +1,526 @@
-import { useState } from "react";
-import { useForm } from "react-hook-form";
-import { z } from "zod";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useEffect, useState } from "react";
 
-interface Transaction {
-    id: number;
-    merchant: string;
-    category: string;
-    date: string;
-    amount: number;
-    type: "income" | "expense";
-}
+import {
+    getTransactions,
+    createTransaction,
+} from "../api/transactions";
+
+import type {
+    Transaction,
+} from "../api/transactions";
+
+import { useForm } from "react-hook-form";
+
+import { z } from "zod";
+
+import {
+    zodResolver,
+} from "@hookform/resolvers/zod";
+
+
+/* =========================================================
+   CONSTANTS
+========================================================= */
+
+const categories = [
+    "Income",
+    "Food",
+    "Shopping",
+    "Transport",
+    "Entertainment",
+    "Bills",
+    "Other",
+];
+
+
+/* =========================================================
+   FORM VALIDATION
+========================================================= */
 
 const transactionSchema = z.object({
+
     merchant: z
         .string()
-        .min(2, "Merchant name must be at least 2 characters"),
+        .trim()
+        .min(
+            2,
+            "Merchant name must be at least 2 characters"
+        ),
 
     category: z
         .string()
-        .min(1, "Please select a category"),
+        .min(
+            1,
+            "Please select a category"
+        ),
 
     amount: z
         .number({
             error: "Amount must be a number",
         })
-        .positive("Amount must be greater than 0"),
+        .positive(
+            "Amount must be greater than 0"
+        ),
 
     date: z
         .string()
-        .min(1, "Please select a date"),
+        .min(
+            1,
+            "Please select a date"
+        ),
 
-    type: z.enum(["income", "expense"]),
+    type: z.enum([
+        "income",
+        "expense",
+    ]),
 });
 
-type TransactionFormData = z.infer<
-    typeof transactionSchema
->;
 
-const initialTransactions: Transaction[] = [
-    {
-        id: 1,
-        merchant: "Salary",
-        category: "Income",
-        date: "22 Aug 2026",
-        amount: 75000,
-        type: "income",
-    },
-    {
-        id: 2,
-        merchant: "Swiggy",
-        category: "Food",
-        date: "21 Aug 2026",
-        amount: 450,
-        type: "expense",
-    },
-    {
-        id: 3,
-        merchant: "Amazon",
-        category: "Shopping",
-        date: "20 Aug 2026",
-        amount: 1299,
-        type: "expense",
-    },
-    {
-        id: 4,
-        merchant: "Uber",
-        category: "Transport",
-        date: "19 Aug 2026",
-        amount: 320,
-        type: "expense",
-    },
-    {
-        id: 5,
-        merchant: "Netflix",
-        category: "Entertainment",
-        date: "18 Aug 2026",
-        amount: 649,
-        type: "expense",
-    },
-    {
-        id: 6,
-        merchant: "Freelance Project",
-        category: "Income",
-        date: "17 Aug 2026",
-        amount: 15000,
-        type: "income",
-    },
-    {
-        id: 7,
-        merchant: "Electricity Bill",
-        category: "Bills",
-        date: "16 Aug 2026",
-        amount: 2300,
-        type: "expense",
-    },
-    {
-        id: 8,
-        merchant: "Zomato",
-        category: "Food",
-        date: "15 Aug 2026",
-        amount: 580,
-        type: "expense",
-    },
-];
+type TransactionFormData =
+    z.infer<typeof transactionSchema>;
+
+
+/* =========================================================
+   HELPER FUNCTION
+========================================================= */
+
+const formatDate = (date: string) => {
+
+    if (!date) {
+        return "-";
+    }
+
+    const parsedDate = new Date(date);
+
+    if (Number.isNaN(parsedDate.getTime())) {
+        return date;
+    }
+
+    return parsedDate.toLocaleDateString(
+        "en-IN",
+        {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+        }
+    );
+};
+
+
+/* =========================================================
+   TRANSACTIONS COMPONENT
+========================================================= */
 
 function Transactions() {
-    const [transactions, setTransactions] = useState<
-        Transaction[]
-    >(initialTransactions);
 
-    const [search, setSearch] = useState("");
+    /* =====================================================
+       STATE
+    ===================================================== */
 
-    const [category, setCategory] =
-        useState("All");
+    const [
+        transactions,
+        setTransactions,
+    ] = useState<Transaction[]>([]);
 
-    const [showForm, setShowForm] =
-        useState(false);
+
+    const [
+        search,
+        setSearch,
+    ] = useState("");
+
+
+    const [
+        category,
+        setCategory,
+    ] = useState("All");
+
+
+    const [
+        showForm,
+        setShowForm,
+    ] = useState(false);
+
+
+    const [
+        loading,
+        setLoading,
+    ] = useState(true);
+
+
+    const [
+        saving,
+        setSaving,
+    ] = useState(false);
+
+
+    const [
+        error,
+        setError,
+    ] = useState("");
+
+
+    /* =====================================================
+       FORM
+    ===================================================== */
 
     const {
         register,
         handleSubmit,
         reset,
-        formState: { errors },
+        formState: {
+            errors,
+        },
     } = useForm<TransactionFormData>({
-        resolver: zodResolver(transactionSchema),
+
+        resolver:
+            zodResolver(
+                transactionSchema
+            ),
+
         defaultValues: {
             type: "expense",
+            category: "",
+            merchant: "",
+            amount: undefined,
+            date: "",
         },
     });
 
+
+    /* =====================================================
+       LOAD TRANSACTIONS FROM BACKEND
+    ===================================================== */
+
+    useEffect(() => {
+
+        const loadTransactions =
+            async () => {
+
+                try {
+
+                    setLoading(true);
+
+                    setError("");
+
+                    const data =
+                        await getTransactions();
+
+                    setTransactions(data);
+
+                } catch (err) {
+
+                    console.error(
+                        "Failed to load transactions:",
+                        err
+                    );
+
+                    setError(
+                        "Unable to load transactions. Please make sure the backend server is running."
+                    );
+
+                } finally {
+
+                    setLoading(false);
+
+                }
+            };
+
+
+        loadTransactions();
+
+    }, []);
+
+
+    /* =====================================================
+       FILTER TRANSACTIONS
+    ===================================================== */
+
     const filteredTransactions =
-        transactions.filter((transaction) => {
-            const matchesSearch =
-                transaction.merchant
-                    .toLowerCase()
-                    .includes(search.toLowerCase());
+        transactions.filter(
+            (transaction) => {
 
-            const matchesCategory =
-                category === "All" ||
-                transaction.category === category;
+                const merchant =
+                    transaction.merchant
+                        ?.toLowerCase() ?? "";
 
-            return (
-                matchesSearch &&
-                matchesCategory
+
+                const searchText =
+                    search
+                        .toLowerCase()
+                        .trim();
+
+
+                const matchesSearch =
+                    merchant.includes(
+                        searchText
+                    );
+
+
+                const matchesCategory =
+                    category === "All" ||
+                    transaction.category ===
+                    category;
+
+
+                return (
+                    matchesSearch &&
+                    matchesCategory
+                );
+            }
+        );
+
+
+    /* =====================================================
+       TOTAL INCOME
+    ===================================================== */
+
+    const totalIncome =
+        transactions
+            .filter(
+                (transaction) =>
+                    transaction.type ===
+                    "income"
+            )
+            .reduce(
+                (
+                    total,
+                    transaction
+                ) =>
+                    total +
+                    Number(
+                        transaction.amount
+                    ),
+                0
             );
-        });
 
-    const totalIncome = transactions
-        .filter(
-            (transaction) =>
-                transaction.type === "income"
-        )
-        .reduce(
-            (total, transaction) =>
-                total + transaction.amount,
-            0
-        );
 
-    const totalExpenses = transactions
-        .filter(
-            (transaction) =>
-                transaction.type === "expense"
-        )
-        .reduce(
-            (total, transaction) =>
-                total + transaction.amount,
-            0
-        );
+    /* =====================================================
+       TOTAL EXPENSES
+    ===================================================== */
 
-    const onSubmit = (
-        data: TransactionFormData
-    ) => {
-        const newTransaction: Transaction = {
-            id: Date.now(),
+    const totalExpenses =
+        transactions
+            .filter(
+                (transaction) =>
+                    transaction.type ===
+                    "expense"
+            )
+            .reduce(
+                (
+                    total,
+                    transaction
+                ) =>
+                    total +
+                    Number(
+                        transaction.amount
+                    ),
+                0
+            );
 
-            merchant: data.merchant,
 
-            category: data.category,
+    /* =====================================================
+       ADD TRANSACTION
+    ===================================================== */
 
-            date: new Date(
-                data.date
-            ).toLocaleDateString("en-IN", {
-                day: "2-digit",
-                month: "short",
-                year: "numeric",
-            }),
+    const onSubmit =
+        async (
+            data: TransactionFormData
+        ) => {
 
-            amount: data.amount,
+            try {
 
-            type: data.type,
+                setSaving(true);
+
+                setError("");
+
+
+                /*
+                 * Send transaction to backend.
+                 *
+                 * The backend will create the MongoDB
+                 * document and return the saved transaction.
+                 */
+
+                const newTransaction =
+                    await createTransaction({
+
+                        merchant:
+                            data.merchant.trim(),
+
+                        category:
+                            data.category,
+
+                        amount:
+                            data.amount,
+
+                        date:
+                            data.date,
+
+                        type:
+                            data.type,
+
+                    });
+
+
+                /*
+                 * Add the newly created transaction
+                 * to the beginning of our list.
+                 */
+
+                setTransactions(
+                    (current) => [
+                        newTransaction,
+                        ...current,
+                    ]
+                );
+
+
+                /*
+                 * Clear the form.
+                 */
+
+                reset({
+                    merchant: "",
+                    category: "",
+                    amount: undefined,
+                    date: "",
+                    type: "expense",
+                });
+
+
+                /*
+                 * Close modal.
+                 */
+
+                setShowForm(false);
+
+
+            } catch (err) {
+
+                console.error(
+                    "Failed to create transaction:",
+                    err
+                );
+
+                setError(
+                    "Failed to add transaction. Please make sure the backend server is running."
+                );
+
+            } finally {
+
+                setSaving(false);
+
+            }
         };
 
-        setTransactions((current) => [
-            newTransaction,
-            ...current,
-        ]);
 
-        reset();
+    /* =====================================================
+       OPEN FORM
+    ===================================================== */
 
-        setShowForm(false);
+    const openForm = () => {
+
+        setError("");
+
+        reset({
+            merchant: "",
+            category: "",
+            amount: undefined,
+            date: "",
+            type: "expense",
+        });
+
+        setShowForm(true);
     };
 
+
+    /* =====================================================
+       CLOSE FORM
+    ===================================================== */
+
+    const closeForm = () => {
+
+        if (saving) {
+            return;
+        }
+
+        setShowForm(false);
+
+        reset({
+            merchant: "",
+            category: "",
+            amount: undefined,
+            date: "",
+            type: "expense",
+        });
+    };
+
+
+    /* =====================================================
+       LOADING SCREEN
+    ===================================================== */
+
+    if (loading) {
+
+        return (
+
+            <div className="transactions-page">
+
+                <div className="page-header">
+
+                    <div>
+
+                        <h1>
+                            Transactions
+                        </h1>
+
+                        <p>
+                            Loading your
+                            transactions...
+                        </p>
+
+                    </div>
+
+                </div>
+
+            </div>
+        );
+    }
+
+
+    /* =====================================================
+       MAIN PAGE
+    ===================================================== */
+
     return (
+
         <div className="transactions-page">
 
-            {/* PAGE HEADER */}
+
+            {/* =================================================
+                PAGE HEADER
+            ================================================= */}
 
             <div className="page-header">
 
                 <div>
-                    <h1>Transactions</h1>
+
+                    <h1>
+                        Transactions
+                    </h1>
 
                     <p>
-                        Track and manage your financial
-                        activity.
+                        Track and manage your
+                        financial activity.
                     </p>
+
                 </div>
 
+
                 <button
+                    type="button"
                     className="add-transaction-button"
-                    onClick={() =>
-                        setShowForm(true)
-                    }
+                    onClick={openForm}
                 >
                     + Add Transaction
                 </button>
@@ -230,24 +528,55 @@ function Transactions() {
             </div>
 
 
-            {/* SUMMARY */}
+            {/* =================================================
+                ERROR MESSAGE
+            ================================================= */}
+
+            {error && (
+
+                <div
+                    className="form-error"
+                    style={{
+                        marginBottom: "20px",
+                    }}
+                >
+                    {error}
+                </div>
+
+            )}
+
+
+            {/* =================================================
+                SUMMARY CARDS
+            ================================================= */}
 
             <div className="transaction-summary">
 
+
+                {/* TOTAL TRANSACTIONS */}
+
                 <div className="summary-card">
 
-                    <p>Total Transactions</p>
+                    <p>
+                        Total Transactions
+                    </p>
 
                     <h2>
-                        {transactions.length}
+                        {
+                            transactions.length
+                        }
                     </h2>
 
                 </div>
 
 
+                {/* TOTAL INCOME */}
+
                 <div className="summary-card">
 
-                    <p>Total Income</p>
+                    <p>
+                        Total Income
+                    </p>
 
                     <h2>
                         ₹
@@ -259,9 +588,13 @@ function Transactions() {
                 </div>
 
 
+                {/* TOTAL EXPENSES */}
+
                 <div className="summary-card">
 
-                    <p>Total Expenses</p>
+                    <p>
+                        Total Expenses
+                    </p>
 
                     <h2>
                         ₹
@@ -272,22 +605,32 @@ function Transactions() {
 
                 </div>
 
+
             </div>
 
 
-            {/* SEARCH AND FILTER */}
+            {/* =================================================
+                SEARCH + CATEGORY FILTER
+            ================================================= */}
 
             <div className="transaction-controls">
+
+
+                {/* SEARCH */}
 
                 <input
                     type="text"
                     placeholder="Search transactions..."
                     value={search}
                     onChange={(event) =>
-                        setSearch(event.target.value)
+                        setSearch(
+                            event.target.value
+                        )
                     }
                 />
 
+
+                {/* CATEGORY */}
 
                 <select
                     value={category}
@@ -297,41 +640,39 @@ function Transactions() {
                         )
                     }
                 >
+
                     <option value="All">
                         All Categories
                     </option>
 
-                    <option value="Income">
-                        Income
-                    </option>
 
-                    <option value="Food">
-                        Food
-                    </option>
+                    {categories.map(
+                        (item) => (
 
-                    <option value="Shopping">
-                        Shopping
-                    </option>
+                            <option
+                                key={item}
+                                value={item}
+                            >
+                                {item}
+                            </option>
 
-                    <option value="Transport">
-                        Transport
-                    </option>
+                        )
+                    )}
 
-                    <option value="Entertainment">
-                        Entertainment
-                    </option>
-
-                    <option value="Bills">
-                        Bills
-                    </option>
                 </select>
+
 
             </div>
 
 
-            {/* TRANSACTION TABLE */}
+            {/* =================================================
+                TRANSACTIONS TABLE
+            ================================================= */}
 
             <div className="transactions-table-card">
+
+
+                {/* TABLE HEADER */}
 
                 <div className="table-header">
 
@@ -340,14 +681,21 @@ function Transactions() {
                     </h2>
 
                     <span>
-                        {filteredTransactions.length}{" "}
+                        {
+                            filteredTransactions.length
+                        }{" "}
                         results
                     </span>
 
                 </div>
 
 
+                {/* TABLE */}
+
                 <div className="transaction-table">
+
+
+                    {/* COLUMN HEADERS */}
 
                     <div className="table-row table-heading">
 
@@ -370,58 +718,121 @@ function Transactions() {
                     </div>
 
 
-                    {filteredTransactions.map(
-                        (transaction) => (
+                    {/* NO RESULTS */}
 
-                            <div
-                                className="table-row"
-                                key={transaction.id}
-                            >
+                    {filteredTransactions.length ===
+                        0 ? (
 
-                                <span className="merchant-name">
-                                    {transaction.merchant}
-                                </span>
+                        <div
+                            className="table-row"
+                            style={{
+                                display: "block",
+                                textAlign: "center",
+                                padding: "30px",
+                            }}
+                        >
 
+                            <span>
+                                No transactions found.
+                            </span>
 
-                                <span>
+                        </div>
 
-                                    <span className="category-badge">
-                                        {transaction.category}
-                                    </span>
-
-                                </span>
-
-
-                                <span className="transaction-date">
-                                    {transaction.date}
-                                </span>
+                    ) : (
 
 
-                                <span
-                                    className={
-                                        transaction.type ===
-                                            "income"
-                                            ? "income-amount"
-                                            : "expense-amount"
+                        /* TRANSACTION ROWS */
+
+                        filteredTransactions.map(
+                            (
+                                transaction,
+                                index
+                            ) => (
+
+                                <div
+                                    className="table-row"
+                                    key={
+                                        transaction._id ??
+                                        `${transaction.merchant}-${transaction.date}-${index}`
                                     }
                                 >
 
-                                    {transaction.type ===
-                                        "income"
-                                        ? "+"
-                                        : "-"}
 
-                                    ₹
+                                    {/* MERCHANT */}
 
-                                    {transaction.amount.toLocaleString(
-                                        "en-IN"
-                                    )}
+                                    <span className="merchant-name">
 
-                                </span>
+                                        {
+                                            transaction.merchant
+                                        }
 
-                            </div>
+                                    </span>
 
+
+                                    {/* CATEGORY */}
+
+                                    <span>
+
+                                        <span className="category-badge">
+
+                                            {
+                                                transaction.category
+                                            }
+
+                                        </span>
+
+                                    </span>
+
+
+                                    {/* DATE */}
+
+                                    <span className="transaction-date">
+
+                                        {
+                                            formatDate(
+                                                transaction.date
+                                            )
+                                        }
+
+                                    </span>
+
+
+                                    {/* AMOUNT */}
+
+                                    <span
+                                        className={
+                                            transaction.type ===
+                                                "income"
+                                                ? "income-amount"
+                                                : "expense-amount"
+                                        }
+                                    >
+
+                                        {
+                                            transaction.type ===
+                                                "income"
+                                                ? "+"
+                                                : "-"
+                                        }
+
+                                        ₹
+
+                                        {
+                                            Number(
+                                                transaction.amount
+                                            ).toLocaleString(
+                                                "en-IN"
+                                            )
+                                        }
+
+                                    </span>
+
+
+                                </div>
+
+                            )
                         )
+
                     )}
 
                 </div>
@@ -429,16 +840,17 @@ function Transactions() {
             </div>
 
 
-            {/* ADD TRANSACTION MODAL */}
+            {/* =================================================
+                ADD TRANSACTION MODAL
+            ================================================= */}
 
             {showForm && (
 
                 <div
                     className="modal-overlay"
-                    onClick={() =>
-                        setShowForm(false)
-                    }
+                    onClick={closeForm}
                 >
+
 
                     <div
                         className="transaction-modal"
@@ -447,9 +859,16 @@ function Transactions() {
                         }
                     >
 
+
+                        {/* =================================================
+                            MODAL HEADER
+                        ================================================= */}
+
                         <div className="modal-header">
 
+
                             <div>
+
                                 <h2>
                                     Add Transaction
                                 </h2>
@@ -458,36 +877,47 @@ function Transactions() {
                                     Enter your transaction
                                     details.
                                 </p>
+
                             </div>
 
+
                             <button
+                                type="button"
                                 className="close-modal-button"
-                                onClick={() =>
-                                    setShowForm(false)
-                                }
+                                onClick={closeForm}
+                                disabled={saving}
                             >
                                 ×
                             </button>
 
+
                         </div>
 
 
+                        {/* =================================================
+                            FORM
+                        ================================================= */}
+
                         <form
+                            className="transaction-form"
                             onSubmit={handleSubmit(
                                 onSubmit
                             )}
-                            className="transaction-form"
                         >
 
-                            {/* MERCHANT */}
+
+                            {/* =================================================
+                                MERCHANT
+                            ================================================= */}
 
                             <div className="form-group">
 
-                                <label>
+                                <label htmlFor="merchant">
                                     Merchant
                                 </label>
 
                                 <input
+                                    id="merchant"
                                     type="text"
                                     placeholder="Example: Amazon"
                                     {...register(
@@ -495,27 +925,34 @@ function Transactions() {
                                     )}
                                 />
 
+
                                 {errors.merchant && (
+
                                     <p className="form-error">
+
                                         {
-                                            errors.merchant
-                                                .message
+                                            errors.merchant.message
                                         }
+
                                     </p>
+
                                 )}
 
                             </div>
 
 
-                            {/* CATEGORY */}
+                            {/* =================================================
+                                CATEGORY
+                            ================================================= */}
 
                             <div className="form-group">
 
-                                <label>
+                                <label htmlFor="category">
                                     Category
                                 </label>
 
                                 <select
+                                    id="category"
                                     {...register(
                                         "category"
                                     )}
@@ -525,113 +962,125 @@ function Transactions() {
                                         Select category
                                     </option>
 
-                                    <option value="Income">
-                                        Income
-                                    </option>
 
-                                    <option value="Food">
-                                        Food
-                                    </option>
+                                    {categories.map(
+                                        (item) => (
 
-                                    <option value="Shopping">
-                                        Shopping
-                                    </option>
+                                            <option
+                                                key={item}
+                                                value={item}
+                                            >
+                                                {item}
+                                            </option>
 
-                                    <option value="Transport">
-                                        Transport
-                                    </option>
-
-                                    <option value="Entertainment">
-                                        Entertainment
-                                    </option>
-
-                                    <option value="Bills">
-                                        Bills
-                                    </option>
+                                        )
+                                    )}
 
                                 </select>
 
 
                                 {errors.category && (
+
                                     <p className="form-error">
+
                                         {
-                                            errors.category
-                                                .message
+                                            errors.category.message
                                         }
+
                                     </p>
+
                                 )}
 
                             </div>
 
 
-                            {/* AMOUNT */}
+                            {/* =================================================
+                                AMOUNT
+                            ================================================= */}
 
                             <div className="form-group">
 
-                                <label>
+                                <label htmlFor="amount">
                                     Amount
                                 </label>
 
                                 <input
+                                    id="amount"
                                     type="number"
                                     placeholder="Example: 1500"
                                     step="0.01"
+                                    min="0"
                                     {...register(
                                         "amount",
                                         {
-                                            valueAsNumber: true,
+                                            valueAsNumber:
+                                                true,
                                         }
                                     )}
                                 />
 
+
                                 {errors.amount && (
+
                                     <p className="form-error">
+
                                         {
-                                            errors.amount
-                                                .message
+                                            errors.amount.message
                                         }
+
                                     </p>
+
                                 )}
 
                             </div>
 
 
-                            {/* DATE */}
+                            {/* =================================================
+                                DATE
+                            ================================================= */}
 
                             <div className="form-group">
 
-                                <label>
+                                <label htmlFor="date">
                                     Date
                                 </label>
 
                                 <input
+                                    id="date"
                                     type="date"
                                     {...register(
                                         "date"
                                     )}
                                 />
 
+
                                 {errors.date && (
+
                                     <p className="form-error">
+
                                         {
-                                            errors.date
-                                                .message
+                                            errors.date.message
                                         }
+
                                     </p>
+
                                 )}
 
                             </div>
 
 
-                            {/* TYPE */}
+                            {/* =================================================
+                                TRANSACTION TYPE
+                            ================================================= */}
 
                             <div className="form-group">
 
-                                <label>
+                                <label htmlFor="type">
                                     Transaction Type
                                 </label>
 
                                 <select
+                                    id="type"
                                     {...register(
                                         "type"
                                     )}
@@ -650,31 +1099,45 @@ function Transactions() {
                             </div>
 
 
-                            {/* BUTTONS */}
+                            {/* =================================================
+                                FORM BUTTONS
+                            ================================================= */}
 
                             <div className="form-actions">
+
+
+                                {/* CANCEL */}
 
                                 <button
                                     type="button"
                                     className="cancel-button"
-                                    onClick={() =>
-                                        setShowForm(false)
-                                    }
+                                    onClick={closeForm}
+                                    disabled={saving}
                                 >
                                     Cancel
                                 </button>
 
 
+                                {/* SAVE */}
+
                                 <button
                                     type="submit"
                                     className="save-button"
+                                    disabled={saving}
                                 >
-                                    Save Transaction
+
+                                    {saving
+                                        ? "Saving..."
+                                        : "Save Transaction"}
+
                                 </button>
+
 
                             </div>
 
+
                         </form>
+
 
                     </div>
 
@@ -682,8 +1145,10 @@ function Transactions() {
 
             )}
 
+
         </div>
     );
 }
+
 
 export default Transactions;
