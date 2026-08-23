@@ -1,32 +1,45 @@
 /* ==========================================================================
    WALLET-MATE HOMEPAGE STYLESHEET
-   World-class Fintech SaaS Landing Page Aesthetics
+   Soft Sage + Forest Green + Mint Aesthetic (Fintech Editorial)
    ========================================================================== */
 
 :root {
-  --wm-primary: #635bff;
-  --wm-primary-hover: #534be5;
-  --wm-primary-light: #f5f3ff;
-  --wm-primary-glow: rgba(99, 91, 255, 0.18);
-  --wm-text-main: #0f172a;
-  --wm-text-muted: #64748b;
-  --wm-text-subtle: #94a3b8;
-  --wm-bg-main: #ffffff;
-  --wm-bg-alt: #f8fafc;
-  --wm-bg-card: #ffffff;
-  --wm-border: #e2e8f0;
-  --wm-border-subtle: #f1f5f9;
-  --wm-success: #10b981;
-  --wm-success-bg: #ecfdf5;
-  --wm-danger: #ef4444;
-  --wm-danger-bg: #fef2f2;
-  --wm-accent-teal: #06b6d4;
-  --wm-accent-purple: #8b5cf6;
+  --wm-bg-main: #EEF3EE;
+  --wm-bg-alt: #E5ECE6;
+  --wm-bg-card: #FFFFFF;
+  --wm-bg-surface: #F4F7F3;
+  --wm-bg-pill: #EAF1EB;
+
+  --wm-text-main: #17352E;
+  --wm-text-strong: #123C32;
+  --wm-text-muted: #63776F;
+  --wm-text-subtle: #8DA198;
+
+  --wm-primary: #123C32;
+  --wm-primary-hover: #1B5144;
+  --wm-primary-light: #E0EFE6;
+  --wm-primary-glow: rgba(18, 60, 50, 0.12);
+
+  --wm-mint: #8EDBC1;
+  --wm-mint-soft: #BFE6D6;
+  --wm-accent-teal: #6FD9B8;
+  --wm-accent-purple: #3D5A50;
+
+  --wm-border: #C6D7CE;
+  --wm-border-subtle: #DBE6DF;
+
+  --wm-success: #10B981;
+  --wm-success-bg: #E6F8F0;
+  --wm-danger: #3D5A50;
+  --wm-danger-bg: #EAEFEA;
+
   --wm-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --wm-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --wm-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -2px rgba(0, 0, 0, 0.05);
-  --wm-shadow-lg: 0 12px 24px -4px rgba(15, 23, 42, 0.08), 0 4px 8px -2px rgba(15, 23, 42, 0.04);
-  --wm-shadow-xl: 0 24px 48px -12px rgba(99, 91, 255, 0.15), 0 12px 24px -6px rgba(15, 23, 42, 0.06);
+  --wm-font-display: 'Outfit', 'Inter', sans-serif;
+
+  --wm-shadow-sm: 0 2px 6px rgba(18, 60, 50, 0.04);
+  --wm-shadow-md: 0 8px 20px rgba(18, 60, 50, 0.07);
+  --wm-shadow-lg: 0 16px 36px rgba(18, 60, 50, 0.09);
+  --wm-shadow-xl: 0 24px 56px -12px rgba(18, 60, 50, 0.13);
 }
 
 .homepage-wrapper {
@@ -39,7 +52,7 @@
   -webkit-font-smoothing: antialiased;
 }
 
-/* Background Ambient Glows */
+/* Background Ambient Glow & Organic Flow Lines */
 .homepage-ambient-glow {
   position: absolute;
   top: 0;
@@ -47,8 +60,26 @@
   transform: translateX(-50%);
   width: 100%;
   max-width: 1400px;
-  height: 650px;
-  background: radial-gradient(circle at 50% -10%, rgba(99, 91, 255, 0.12) 0%, rgba(139, 92, 246, 0.06) 40%, transparent 75%);
+  height: 720px;
+  background: 
+    radial-gradient(circle at 50% -10%, rgba(142, 219, 193, 0.35) 0%, rgba(191, 230, 214, 0.18) 35%, transparent 70%),
+    radial-gradient(circle at 10% 40%, rgba(18, 60, 50, 0.04) 0%, transparent 40%),
+    radial-gradient(circle at 90% 40%, rgba(18, 60, 50, 0.04) 0%, transparent 40%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Flow line decorative pseudo elements */
+.homepage-wrapper::before {
+  content: '';
+  position: absolute;
+  top: 180px;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    radial-gradient(ellipse at top left, rgba(142, 219, 193, 0.12) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom right, rgba(18, 60, 50, 0.05) 0%, transparent 50%);
   pointer-events: none;
   z-index: 0;
 }
@@ -64,16 +95,16 @@
 }
 
 /* ==========================================================================
-   NAVBAR
+   NAVBAR (Floating Sage Glass)
    ========================================================================== */
 .wm-navbar {
   position: sticky;
   top: 0;
   width: 100%;
-  background: rgba(255, 255, 255, 0.88);
+  background: rgba(238, 243, 238, 0.88);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid rgba(226, 232, 240, 0.7);
+  border-bottom: 1px solid var(--wm-border);
   z-index: 100;
   transition: all 0.2s ease;
 }
@@ -90,22 +121,23 @@
   align-items: center;
   gap: 10px;
   text-decoration: none;
-  color: var(--wm-text-main);
+  color: var(--wm-text-strong);
+  font-family: var(--wm-font-display);
   font-weight: 700;
-  font-size: 1.18rem;
-  letter-spacing: -0.02em;
+  font-size: 1.22rem;
+  letter-spacing: -0.03em;
 }
 
 .wm-logo-icon {
   width: 34px;
   height: 34px;
-  background: linear-gradient(135deg, #635bff 0%, #7c3aed 100%);
-  border-radius: 10px;
+  background: linear-gradient(135deg, #123C32 0%, #1B5144 100%);
+  border-radius: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ffffff;
-  box-shadow: 0 4px 10px rgba(99, 91, 255, 0.28);
+  color: #8EDBC1;
+  box-shadow: 0 3px 10px rgba(18, 60, 50, 0.22);
 }
 
 .wm-nav-links {
@@ -120,7 +152,7 @@
 .wm-nav-link {
   color: var(--wm-text-muted);
   font-size: 0.92rem;
-  font-weight: 500;
+  font-weight: 550;
   text-decoration: none;
   transition: color 0.15s ease;
   cursor: pointer;
@@ -137,7 +169,7 @@
 }
 
 .wm-btn-text {
-  color: var(--wm-text-main);
+  color: var(--wm-text-strong);
   font-size: 0.92rem;
   font-weight: 600;
   text-decoration: none;
@@ -164,14 +196,14 @@
   padding: 10px 18px;
   border-radius: 9px;
   border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 0 2px 8px rgba(99, 91, 255, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+  box-shadow: 0 2px 8px rgba(18, 60, 50, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.2);
   transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   cursor: pointer;
 }
 
 .wm-btn-primary:hover {
   background-color: var(--wm-primary-hover);
-  box-shadow: 0 4px 14px rgba(99, 91, 255, 0.38);
+  box-shadow: 0 4px 14px rgba(18, 60, 50, 0.35);
   transform: translateY(-1px);
 }
 
@@ -181,7 +213,7 @@
   justify-content: center;
   gap: 8px;
   background-color: #ffffff;
-  color: var(--wm-text-main);
+  color: var(--wm-text-strong);
   font-size: 0.92rem;
   font-weight: 600;
   text-decoration: none;
@@ -195,7 +227,7 @@
 
 .wm-btn-secondary:hover {
   background-color: var(--wm-bg-alt);
-  border-color: #cbd5e1;
+  border-color: #a8c1b3;
   color: var(--wm-primary);
 }
 
@@ -203,7 +235,7 @@
   display: none;
   background: none;
   border: none;
-  color: var(--wm-text-main);
+  color: var(--wm-text-strong);
   cursor: pointer;
   padding: 6px;
 }
@@ -212,7 +244,7 @@
    HERO SECTION
    ========================================================================== */
 .wm-hero {
-  padding: 80px 0 60px;
+  padding: 84px 0 60px;
   text-align: center;
   position: relative;
 }
@@ -222,37 +254,38 @@
   align-items: center;
   gap: 8px;
   padding: 6px 14px;
-  background: var(--wm-primary-light);
-  border: 1px solid rgba(99, 91, 255, 0.2);
+  background: #EAF1EB;
+  border: 1px solid var(--wm-border);
   border-radius: 100px;
-  color: var(--wm-primary);
+  color: var(--wm-text-strong);
   font-size: 0.84rem;
   font-weight: 600;
   margin-bottom: 24px;
-  box-shadow: 0 2px 6px rgba(99, 91, 255, 0.08);
+  box-shadow: 0 2px 6px rgba(18, 60, 50, 0.05);
 }
 
 .wm-badge-dot {
   width: 7px;
   height: 7px;
-  background-color: var(--wm-primary);
+  background-color: #10B981;
   border-radius: 50%;
   display: inline-block;
-  box-shadow: 0 0 0 3px rgba(99, 91, 255, 0.2);
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
 }
 
 .wm-hero-title {
+  font-family: var(--wm-font-display);
   font-size: 3.8rem;
   line-height: 1.1;
   font-weight: 800;
   letter-spacing: -0.04em;
-  color: var(--wm-text-main);
-  max-width: 900px;
+  color: var(--wm-text-strong);
+  max-width: 920px;
   margin: 0 auto 20px;
 }
 
 .wm-hero-title-gradient {
-  background: linear-gradient(135deg, #0f172a 30%, #635bff 75%, #8b5cf6 100%);
+  background: linear-gradient(135deg, #123C32 20%, #1B5144 60%, #16845B 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -261,8 +294,8 @@
   font-size: 1.25rem;
   line-height: 1.6;
   color: var(--wm-text-muted);
-  max-width: 700px;
-  margin: 0 auto 36px;
+  max-width: 720px;
+  margin: 0 auto 38px;
 }
 
 .wm-hero-actions {
@@ -291,7 +324,7 @@
 .wm-mockup-frame {
   background: #ffffff;
   border-radius: 20px;
-  border: 1px solid rgba(226, 232, 240, 0.9);
+  border: 1px solid var(--wm-border);
   box-shadow: var(--wm-shadow-xl);
   overflow: hidden;
   position: relative;
@@ -299,7 +332,7 @@
 }
 
 .wm-mockup-header {
-  background: #f8fafc;
+  background: #F4F7F3;
   border-bottom: 1px solid var(--wm-border);
   padding: 12px 18px;
   display: flex;
@@ -318,9 +351,9 @@
   border-radius: 50%;
 }
 
-.wm-mockup-dot.red { background-color: #ff5f56; }
-.wm-mockup-dot.yellow { background-color: #ffbd2e; }
-.wm-mockup-dot.green { background-color: #27c93f; }
+.wm-mockup-dot.red { background-color: #E57373; }
+.wm-mockup-dot.yellow { background-color: #FFB74D; }
+.wm-mockup-dot.green { background-color: #81C784; }
 
 .wm-mockup-url {
   font-size: 0.78rem;
@@ -337,7 +370,7 @@
   display: grid;
   grid-template-columns: 1fr 340px;
   gap: 24px;
-  background: #fdfdfd;
+  background: #FAFCFA;
 }
 
 /* Mini Cards Inside Hero Mockup */
@@ -351,7 +384,7 @@
 .wm-mini-stat {
   background: #ffffff;
   border: 1px solid var(--wm-border);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 16px;
   box-shadow: var(--wm-shadow-sm);
 }
@@ -359,30 +392,34 @@
 .wm-mini-stat-label {
   font-size: 0.78rem;
   color: var(--wm-text-muted);
-  font-weight: 500;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
   margin-bottom: 4px;
 }
 
 .wm-mini-stat-value {
-  font-size: 1.35rem;
+  font-family: var(--wm-font-display);
+  font-size: 1.45rem;
   font-weight: 700;
-  color: var(--wm-text-main);
+  color: var(--wm-text-strong);
   letter-spacing: -0.02em;
 }
 
 .wm-mini-stat-sub {
   font-size: 0.72rem;
   margin-top: 4px;
+  font-weight: 500;
 }
 
 .wm-text-success { color: var(--wm-success); }
-.wm-text-danger { color: var(--wm-danger); }
+.wm-text-danger { color: var(--wm-text-muted); }
 
 /* Mockup Chart Area */
 .wm-mockup-chart-card {
   background: #ffffff;
   border: 1px solid var(--wm-border);
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 20px;
   box-shadow: var(--wm-shadow-sm);
   margin-bottom: 20px;
@@ -397,8 +434,8 @@
 
 .wm-mockup-chart-title {
   font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--wm-text-main);
+  font-weight: 700;
+  color: var(--wm-text-strong);
 }
 
 .wm-chart-bars {
@@ -420,7 +457,7 @@
 .wm-bar-pair {
   display: flex;
   align-items: flex-end;
-  gap: 4px;
+  gap: 5px;
   height: 100px;
 }
 
@@ -431,11 +468,11 @@
 }
 
 .wm-bar-fill.income {
-  background: #10b981;
+  background: #10B981;
 }
 
 .wm-bar-fill.expense {
-  background: #635bff;
+  background: #123C32;
 }
 
 .wm-bar-label {
@@ -451,23 +488,25 @@
 }
 
 .wm-health-badge-card {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, #123C32 0%, #1B5144 100%);
   color: #ffffff;
-  border-radius: 14px;
-  padding: 20px;
-  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.25);
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 6px 18px rgba(18, 60, 50, 0.25);
+  border: 1px solid rgba(142, 219, 193, 0.3);
 }
 
 .wm-health-score-title {
-  font-size: 0.8rem;
+  font-size: 0.76rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  opacity: 0.9;
-  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: #8EDBC1;
+  font-weight: 700;
 }
 
 .wm-health-score-num {
-  font-size: 2.4rem;
+  font-family: var(--wm-font-display);
+  font-size: 2.6rem;
   font-weight: 800;
   line-height: 1;
   margin: 8px 0;
@@ -475,17 +514,19 @@
 
 .wm-health-verdict {
   font-size: 0.82rem;
-  background: rgba(255, 255, 255, 0.2);
-  padding: 4px 8px;
+  background: rgba(142, 219, 193, 0.2);
+  color: #BFE6D6;
+  padding: 4px 10px;
   border-radius: 6px;
   display: inline-block;
+  font-weight: 600;
 }
 
 /* Recent Transaction List in Mockup */
 .wm-mockup-tx-list {
   background: #ffffff;
   border: 1px solid var(--wm-border);
-  border-radius: 14px;
+  border-radius: 16px;
   padding: 16px;
 }
 
@@ -521,7 +562,7 @@
 .wm-tx-name {
   font-size: 0.85rem;
   font-weight: 600;
-  color: var(--wm-text-main);
+  color: var(--wm-text-strong);
 }
 
 .wm-tx-time {
@@ -540,7 +581,7 @@
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(12px);
   border: 1px solid var(--wm-border);
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 12px 18px;
   box-shadow: var(--wm-shadow-lg);
   display: flex;
@@ -570,10 +611,10 @@
    VALUE PROPOSITION STRIP
    ========================================================================== */
 .wm-value-strip {
-  padding: 48px 0;
-  border-top: 1px solid var(--wm-border-subtle);
-  border-bottom: 1px solid var(--wm-border-subtle);
-  background: var(--wm-bg-alt);
+  padding: 56px 0;
+  border-top: 1px solid var(--wm-border);
+  border-bottom: 1px solid var(--wm-border);
+  background: #EAF1EB;
   margin-top: 60px;
 }
 
@@ -590,21 +631,24 @@
 }
 
 .wm-value-icon {
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  background: var(--wm-primary-light);
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #FFFFFF;
+  border: 1px solid var(--wm-border);
   color: var(--wm-primary);
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: 4px;
+  box-shadow: var(--wm-shadow-xs);
 }
 
 .wm-value-title {
-  font-size: 1.05rem;
+  font-family: var(--wm-font-display);
+  font-size: 1.1rem;
   font-weight: 700;
-  color: var(--wm-text-main);
+  color: var(--wm-text-strong);
   letter-spacing: -0.01em;
 }
 
@@ -618,37 +662,42 @@
    FEATURE SHOWCASE SECTIONS (STORYTELLING)
    ========================================================================== */
 .wm-feature-section {
-  padding: 100px 0;
+  padding: 110px 0;
   position: relative;
 }
 
 .wm-section-header {
   text-align: center;
   max-width: 740px;
-  margin: 0 auto 60px;
+  margin: 0 auto 64px;
 }
 
 .wm-section-tag {
   color: var(--wm-primary);
-  font-size: 0.84rem;
+  background: #EAF1EB;
+  border: 1px solid var(--wm-border);
+  padding: 4px 12px;
+  border-radius: 100px;
+  font-size: 0.8rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   display: inline-block;
 }
 
 .wm-section-title {
-  font-size: 2.6rem;
+  font-family: var(--wm-font-display);
+  font-size: 2.7rem;
   line-height: 1.15;
   font-weight: 800;
   letter-spacing: -0.03em;
-  color: var(--wm-text-main);
+  color: var(--wm-text-strong);
   margin-bottom: 16px;
 }
 
 .wm-section-subtitle {
-  font-size: 1.1rem;
+  font-size: 1.12rem;
   color: var(--wm-text-muted);
   line-height: 1.6;
 }
@@ -677,15 +726,16 @@
 }
 
 .wm-story-title {
-  font-size: 2rem;
+  font-family: var(--wm-font-display);
+  font-size: 2.1rem;
   font-weight: 800;
   letter-spacing: -0.03em;
   line-height: 1.2;
-  color: var(--wm-text-main);
+  color: var(--wm-text-strong);
 }
 
 .wm-story-desc {
-  font-size: 1rem;
+  font-size: 1.02rem;
   color: var(--wm-text-muted);
   line-height: 1.6;
 }
@@ -704,19 +754,19 @@
   align-items: center;
   gap: 10px;
   font-size: 0.95rem;
-  color: var(--wm-text-main);
-  font-weight: 500;
+  color: var(--wm-text-strong);
+  font-weight: 550;
 }
 
 .wm-story-list-item svg {
-  color: var(--wm-primary);
+  color: #10B981;
   flex-shrink: 0;
 }
 
 .wm-story-visual {
-  background: var(--wm-bg-alt);
+  background: #F4F7F3;
   border: 1px solid var(--wm-border);
-  border-radius: 18px;
+  border-radius: 20px;
   padding: 32px;
   box-shadow: var(--wm-shadow-lg);
   position: relative;
@@ -726,22 +776,22 @@
 /* Interactive PDF Upload Simulator */
 .wm-pdf-sim-box {
   background: #ffffff;
-  border: 2px dashed #cbd5e1;
-  border-radius: 14px;
+  border: 2px dashed var(--wm-border);
+  border-radius: 16px;
   padding: 28px 20px;
   text-align: center;
   transition: all 0.2s ease;
 }
 
 .wm-pdf-sim-box:hover {
-  border-color: var(--wm-primary);
-  background: #faf9ff;
+  border-color: #123C32;
+  background: #FAFCFA;
 }
 
 .wm-pdf-sim-icon {
   width: 48px;
   height: 48px;
-  background: var(--wm-primary-light);
+  background: #EAF1EB;
   color: var(--wm-primary);
   border-radius: 12px;
   display: flex;
@@ -774,17 +824,17 @@
   background: var(--wm-primary);
   color: #ffffff;
   border-color: var(--wm-primary);
-  box-shadow: 0 2px 6px rgba(99, 91, 255, 0.25);
+  box-shadow: 0 2px 6px rgba(18, 60, 50, 0.25);
 }
 
 /* ==========================================================================
    HOW IT WORKS (3-STEP TIMELINE)
    ========================================================================== */
 .wm-how-it-works {
-  padding: 90px 0;
-  background: #fafbfc;
-  border-top: 1px solid var(--wm-border-subtle);
-  border-bottom: 1px solid var(--wm-border-subtle);
+  padding: 100px 0;
+  background: #EAF1EB;
+  border-top: 1px solid var(--wm-border);
+  border-bottom: 1px solid var(--wm-border);
 }
 
 .wm-steps-grid {
@@ -797,7 +847,7 @@
 .wm-step-card {
   background: #ffffff;
   border: 1px solid var(--wm-border);
-  border-radius: 16px;
+  border-radius: 18px;
   padding: 32px 24px;
   box-shadow: var(--wm-shadow-sm);
   position: relative;
@@ -810,10 +860,11 @@
 }
 
 .wm-step-num {
+  font-family: var(--wm-font-display);
   font-size: 1.1rem;
   font-weight: 800;
-  color: var(--wm-primary);
-  background: var(--wm-primary-light);
+  color: #ffffff;
+  background: #123C32;
   width: 42px;
   height: 42px;
   border-radius: 10px;
@@ -824,9 +875,10 @@
 }
 
 .wm-step-title {
-  font-size: 1.2rem;
+  font-family: var(--wm-font-display);
+  font-size: 1.25rem;
   font-weight: 700;
-  color: var(--wm-text-main);
+  color: var(--wm-text-strong);
   margin-bottom: 10px;
   letter-spacing: -0.01em;
 }
@@ -841,7 +893,7 @@
    SECURITY & TRUST SECTION
    ========================================================================== */
 .wm-security-section {
-  padding: 90px 0;
+  padding: 100px 0;
 }
 
 .wm-security-grid {
@@ -853,8 +905,8 @@
 .wm-security-card {
   background: #ffffff;
   border: 1px solid var(--wm-border);
-  border-radius: 14px;
-  padding: 24px;
+  border-radius: 16px;
+  padding: 26px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -862,44 +914,46 @@
 }
 
 .wm-sec-icon {
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   border-radius: 10px;
-  background: #ecfdf5;
-  color: var(--wm-success);
+  background: #E6F8F0;
+  color: #10B981;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
 .wm-sec-title {
-  font-size: 1.05rem;
+  font-family: var(--wm-font-display);
+  font-size: 1.1rem;
   font-weight: 700;
-  color: var(--wm-text-main);
+  color: var(--wm-text-strong);
 }
 
 .wm-sec-desc {
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   color: var(--wm-text-muted);
-  line-height: 1.5;
+  line-height: 1.55;
 }
 
 /* ==========================================================================
    FULL-WIDTH CTA SECTION
    ========================================================================== */
 .wm-cta-section {
-  padding: 80px 0 100px;
+  padding: 80px 0 110px;
 }
 
 .wm-cta-card {
-  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #312e81 100%);
+  background: linear-gradient(135deg, #123C32 0%, #1B5144 50%, #0F2D26 100%);
   color: #ffffff;
   border-radius: 24px;
-  padding: 64px 48px;
+  padding: 68px 48px;
   text-align: center;
   position: relative;
   overflow: hidden;
-  box-shadow: 0 20px 40px -15px rgba(30, 27, 75, 0.4);
+  box-shadow: 0 20px 48px -15px rgba(18, 60, 50, 0.4);
+  border: 1px solid rgba(142, 219, 193, 0.2);
 }
 
 .wm-cta-glow {
@@ -909,12 +963,13 @@
   transform: translateX(-50%);
   width: 600px;
   height: 600px;
-  background: radial-gradient(circle, rgba(99, 91, 255, 0.35) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(142, 219, 193, 0.28) 0%, transparent 70%);
   pointer-events: none;
 }
 
 .wm-cta-title {
-  font-size: 2.8rem;
+  font-family: var(--wm-font-display);
+  font-size: 2.9rem;
   font-weight: 800;
   letter-spacing: -0.03em;
   margin-bottom: 16px;
@@ -924,9 +979,9 @@
 
 .wm-cta-desc {
   font-size: 1.15rem;
-  color: #cbd5e1;
-  max-width: 620px;
-  margin: 0 auto 36px;
+  color: #BFE6D6;
+  max-width: 640px;
+  margin: 0 auto 38px;
   position: relative;
   z-index: 1;
 }
@@ -941,8 +996,8 @@
 }
 
 .wm-btn-cta-white {
-  background-color: #ffffff;
-  color: #0f172a;
+  background-color: #8EDBC1;
+  color: #123C32;
   font-size: 1rem;
   font-weight: 700;
   padding: 14px 28px;
@@ -956,7 +1011,7 @@
 }
 
 .wm-btn-cta-white:hover {
-  background-color: #f1f5f9;
+  background-color: #BFE6D6;
   transform: translateY(-2px);
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
 }
@@ -981,7 +1036,7 @@
    FOOTER
    ========================================================================== */
 .wm-footer {
-  background: #ffffff;
+  background: #EAF1EB;
   border-top: 1px solid var(--wm-border);
   padding: 64px 0 32px;
 }
@@ -1007,9 +1062,10 @@
 }
 
 .wm-footer-col-title {
+  font-family: var(--wm-font-display);
   font-size: 0.88rem;
   font-weight: 700;
-  color: var(--wm-text-main);
+  color: var(--wm-text-strong);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   margin-bottom: 16px;
@@ -1040,7 +1096,7 @@
   align-items: center;
   justify-content: space-between;
   padding-top: 32px;
-  border-top: 1px solid var(--wm-border-subtle);
+  border-top: 1px solid var(--wm-border);
   font-size: 0.84rem;
   color: var(--wm-text-subtle);
 }
@@ -1101,7 +1157,8 @@
     flex-direction: column;
     width: 100%;
   }
-  .wm-hero-actions a {
+  .wm-hero-actions a,
+  .wm-hero-actions button {
     width: 100%;
   }
   .wm-mini-stats-grid {
@@ -1123,7 +1180,8 @@
     flex-direction: column;
     width: 100%;
   }
-  .wm-cta-actions a {
+  .wm-cta-actions a,
+  .wm-cta-actions button {
     width: 100%;
   }
   .wm-footer-grid {

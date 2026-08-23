@@ -1,49 +1,47 @@
 /* =========================================================
-   FINTECH DASHBOARD
-   Existing class names preserved
+   WALLET-MATE DESIGN SYSTEM
+   Soft Sage + Forest Green + Mint Aesthetic
 ========================================================= */
 
 :root {
-  --bg: #f5f7f9;
-  --surface: #ffffff;
-  --surface-soft: #f8fafb;
-  --surface-green: #f3faf7;
+  --bg: #EEF3EE;
+  --surface: #FFFFFF;
+  --surface-soft: #F4F7F3;
+  --surface-green: #EAF1EB;
 
-  --text: #17211b;
-  --text-strong: #0d1712;
-  --muted: #69756f;
-  --muted-light: #8c9691;
+  --text: #17352E;
+  --text-strong: #123C32;
+  --muted: #63776F;
+  --muted-light: #8DA198;
 
-  --border: #e2e8e5;
-  --border-soft: #edf1ef;
+  --border: #C6D7CE;
+  --border-soft: #DBE6DF;
 
-  --primary: #176b4d;
-  --primary-hover: #125a40;
-  --primary-soft: #e8f5ef;
+  --primary: #123C32;
+  --primary-hover: #1B5144;
+  --primary-soft: #E0EFE6;
 
-  --income: #16845b;
-  --income-soft: #e8f7f0;
+  --income: #10B981;
+  --income-soft: #E6F8F0;
 
-  --expense: #c84b4b;
-  --expense-soft: #fdf0f0;
+  --expense: #3D5A50;
+  --expense-soft: #EAEFEA;
 
-  --blue: #315f8c;
+  --mint: #8EDBC1;
+  --mint-soft: #BFE6D6;
+  --accent: #6FD9B8;
 
-  --shadow-xs:
-    0 1px 2px rgba(17, 38, 28, 0.025);
+  --blue: #2D5A50;
 
-  --shadow-sm:
-    0 2px 8px rgba(17, 38, 28, 0.04);
-
-  --shadow-md:
-    0 8px 24px rgba(17, 38, 28, 0.07);
-
-  --shadow-lg:
-    0 20px 55px rgba(17, 38, 28, 0.14);
+  --shadow-xs: 0 1px 2px rgba(18, 60, 50, 0.04);
+  --shadow-sm: 0 3px 10px rgba(18, 60, 50, 0.06);
+  --shadow-md: 0 10px 25px rgba(18, 60, 50, 0.08);
+  --shadow-lg: 0 20px 50px rgba(18, 60, 50, 0.12);
 
   --radius-sm: 8px;
   --radius-md: 12px;
-  --radius-lg: 16px;
+  --radius-lg: 18px;
+  --radius-xl: 24px;
 }
 
 

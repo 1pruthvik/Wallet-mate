@@ -304,21 +304,21 @@ function Dashboard() {
                         display: "inline-flex",
                         alignItems: "center",
                         gap: 8,
-                        backgroundColor: "#635bff",
+                        backgroundColor: "#123C32",
                         color: "#ffffff",
-                        border: "none",
-                        borderRadius: "8px",
-                        padding: "10px 16px",
+                        border: "1px solid rgba(255,255,255,0.15)",
+                        borderRadius: "10px",
+                        padding: "10px 18px",
                         fontSize: "14px",
                         fontWeight: 600,
                         cursor: "pointer",
-                        boxShadow: "0 2px 4px rgba(99, 91, 255, 0.2)",
+                        boxShadow: "0 2px 8px rgba(18, 60, 50, 0.22)",
                         fontFamily: "inherit",
-                        transition: "all 0.15s ease"
+                        transition: "all 0.18s ease"
                     }}
                     id="btn-dashboard-upload-statement"
                 >
-                    <FileUp size={16} />
+                    <FileUp size={16} color="#8EDBC1" />
                     <span>Upload Bank Statement</span>
                 </button>
 
