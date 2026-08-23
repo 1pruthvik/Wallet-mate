@@ -65,7 +65,6 @@ function Dashboard() {
                 setLoading(false);
 
             }
-
         };
 
 
@@ -75,35 +74,65 @@ function Dashboard() {
 
 
     /* =========================
-       TOTAL INCOME
+       CURRENT MONTH
     ========================= */
 
-    const totalIncome = useMemo(() => {
+    const currentMonth =
+        new Date().getMonth();
 
-        return transactions
-            .filter(
-                (transaction) =>
-                    transaction.type === "income"
-            )
-            .reduce(
-                (total, transaction) =>
-                    total + transaction.amount,
-                0
-            );
-
-    }, [transactions]);
+    const currentYear =
+        new Date().getFullYear();
 
 
     /* =========================
-       TOTAL EXPENSES
+       MONTHLY TRANSACTIONS
     ========================= */
 
-    const totalExpenses = useMemo(() => {
+    const monthlyTransactions =
+        useMemo(() => {
 
-        return transactions
+            return transactions.filter(
+                (transaction) => {
+
+                    const transactionDate =
+                        new Date(
+                            transaction.date
+                        );
+
+                    if (
+                        Number.isNaN(
+                            transactionDate.getTime()
+                        )
+                    ) {
+                        return false;
+                    }
+
+                    return (
+                        transactionDate.getMonth() ===
+                        currentMonth &&
+                        transactionDate.getFullYear() ===
+                        currentYear
+                    );
+                }
+            );
+
+        }, [
+            transactions,
+            currentMonth,
+            currentYear,
+        ]);
+
+
+    /* =========================
+       MONTHLY INCOME
+    ========================= */
+
+    const monthlyIncome =
+        monthlyTransactions
             .filter(
                 (transaction) =>
-                    transaction.type === "expense"
+                    transaction.type ===
+                    "income"
             )
             .reduce(
                 (total, transaction) =>
@@ -111,7 +140,23 @@ function Dashboard() {
                 0
             );
 
-    }, [transactions]);
+
+    /* =========================
+       MONTHLY EXPENSES
+    ========================= */
+
+    const monthlyExpenses =
+        monthlyTransactions
+            .filter(
+                (transaction) =>
+                    transaction.type ===
+                    "expense"
+            )
+            .reduce(
+                (total, transaction) =>
+                    total + transaction.amount,
+                0
+            );
 
 
     /* =========================
@@ -119,7 +164,8 @@ function Dashboard() {
     ========================= */
 
     const monthlySavings =
-        totalIncome - totalExpenses;
+        monthlyIncome -
+        monthlyExpenses;
 
 
     /* =========================
@@ -127,50 +173,89 @@ function Dashboard() {
     ========================= */
 
     const savingsRate =
-        totalIncome > 0
+        monthlyIncome > 0
             ? Math.round(
-                (monthlySavings / totalIncome) * 100
+                (monthlySavings /
+                    monthlyIncome) *
+                100
             )
             : 0;
 
 
     /* =========================
        TOTAL BALANCE
-       
-       For now we calculate:
-       Income - Expenses
-       
-       Later this can be replaced
-       with actual account balance.
     ========================= */
+
+    const totalIncome =
+        transactions
+            .filter(
+                (transaction) =>
+                    transaction.type ===
+                    "income"
+            )
+            .reduce(
+                (total, transaction) =>
+                    total + transaction.amount,
+                0
+            );
+
+
+    const totalExpenses =
+        transactions
+            .filter(
+                (transaction) =>
+                    transaction.type ===
+                    "expense"
+            )
+            .reduce(
+                (total, transaction) =>
+                    total + transaction.amount,
+                0
+            );
+
 
     const totalBalance =
-        totalIncome - totalExpenses;
+        totalIncome -
+        totalExpenses;
 
 
     /* =========================
-       FORMAT MONEY
+       FINANCIAL HEALTH
     ========================= */
 
-    const formatMoney = (
-        amount: number
-    ) => {
+    const financialHealth =
+        useMemo(() => {
 
-        return `₹${amount.toLocaleString(
-            "en-IN"
-        )}`;
+            if (monthlyIncome <= 0) {
+                return 0;
+            }
 
-    };
+            let score =
+                savingsRate;
+
+            if (score > 100) {
+                score = 100;
+            }
+
+            if (score < 0) {
+                score = 0;
+            }
+
+            return score;
+
+        }, [
+            monthlyIncome,
+            savingsRate,
+        ]);
 
 
     /* =========================
-       LOADING
+       LOADING STATE
     ========================= */
 
     if (loading) {
 
         return (
-
             <div className="dashboard">
 
                 <div className="dashboard-header">
@@ -189,44 +274,13 @@ function Dashboard() {
 
                 </div>
 
-
-                <div className="stats-grid">
-
-                    <StatCard
-                        title="Total Balance"
-                        value="Loading..."
-                        subtitle="Please wait"
-                    />
-
-                    <StatCard
-                        title="Monthly Income"
-                        value="Loading..."
-                        subtitle="Please wait"
-                    />
-
-                    <StatCard
-                        title="Monthly Expenses"
-                        value="Loading..."
-                        subtitle="Please wait"
-                    />
-
-                    <StatCard
-                        title="Monthly Savings"
-                        value="Loading..."
-                        subtitle="Please wait"
-                    />
-
-                </div>
-
             </div>
-
         );
-
     }
 
 
     /* =========================
-       PAGE
+       DASHBOARD
     ========================= */
 
     return (
@@ -267,9 +321,7 @@ function Dashboard() {
                         marginBottom: "20px",
                     }}
                 >
-
                     {error}
-
                 </div>
 
             )}
@@ -282,46 +334,38 @@ function Dashboard() {
             <div className="stats-grid">
 
 
-                {/* TOTAL BALANCE */}
-
                 <StatCard
                     title="Total Balance"
-                    value={formatMoney(
-                        totalBalance
-                    )}
-                    subtitle="Income minus expenses"
+                    value={`₹${totalBalance.toLocaleString(
+                        "en-IN"
+                    )}`}
+                    subtitle="Across all transactions"
                 />
 
-
-                {/* MONTHLY INCOME */}
 
                 <StatCard
                     title="Monthly Income"
-                    value={formatMoney(
-                        totalIncome
-                    )}
-                    subtitle="Total income"
+                    value={`₹${monthlyIncome.toLocaleString(
+                        "en-IN"
+                    )}`}
+                    subtitle="This month"
                 />
 
-
-                {/* MONTHLY EXPENSES */}
 
                 <StatCard
                     title="Monthly Expenses"
-                    value={formatMoney(
-                        totalExpenses
-                    )}
-                    subtitle="Total expenses"
+                    value={`₹${monthlyExpenses.toLocaleString(
+                        "en-IN"
+                    )}`}
+                    subtitle="This month"
                 />
 
 
-                {/* MONTHLY SAVINGS */}
-
                 <StatCard
                     title="Monthly Savings"
-                    value={formatMoney(
-                        monthlySavings
-                    )}
+                    value={`₹${monthlySavings.toLocaleString(
+                        "en-IN"
+                    )}`}
                     subtitle={`${savingsRate}% savings rate`}
                 />
 
@@ -332,7 +376,9 @@ function Dashboard() {
                 FINANCIAL HEALTH
             ========================= */}
 
-            <FinancialHealthCard />
+            <FinancialHealthCard
+                score={financialHealth}
+            />
 
 
             {/* =========================
@@ -346,13 +392,12 @@ function Dashboard() {
                 RECENT TRANSACTIONS
             ========================= */}
 
-            <RecentTransactions />
-
+            <RecentTransactions
+                transactions={transactions}
+            />
 
         </div>
-
     );
-
 }
 
 

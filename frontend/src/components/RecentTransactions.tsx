@@ -1,72 +1,16 @@
-import { useEffect, useState } from "react";
-
-import {
-    getTransactions,
-} from "../api/transactions";
-
 import type {
     Transaction,
 } from "../api/transactions";
 
 
-function RecentTransactions() {
-
-    /* =========================
-       STATE
-    ========================= */
-
-    const [transactions, setTransactions] =
-        useState<Transaction[]>([]);
-
-    const [loading, setLoading] =
-        useState(true);
-
-    const [error, setError] =
-        useState("");
+interface RecentTransactionsProps {
+    transactions?: Transaction[];
+}
 
 
-    /* =========================
-       LOAD TRANSACTIONS
-    ========================= */
-
-    useEffect(() => {
-
-        const loadTransactions = async () => {
-
-            try {
-
-                setLoading(true);
-
-                setError("");
-
-                const data =
-                    await getTransactions();
-
-                setTransactions(data);
-
-            } catch (error) {
-
-                console.error(
-                    "Failed to load recent transactions:",
-                    error
-                );
-
-                setError(
-                    "Unable to load recent transactions."
-                );
-
-            } finally {
-
-                setLoading(false);
-
-            }
-
-        };
-
-
-        loadTransactions();
-
-    }, []);
+function RecentTransactions({
+    transactions = [],
+}: RecentTransactionsProps) {
 
 
     /* =========================
@@ -85,7 +29,6 @@ function RecentTransactions() {
                         new Date(b.date).getTime();
 
                     return dateB - dateA;
-
                 }
             )
             .slice(0, 5);
@@ -96,25 +39,21 @@ function RecentTransactions() {
     ========================= */
 
     const formatDate = (
-        dateString: string
+        date: string
     ) => {
 
-        const date =
-            new Date(dateString);
-
+        const parsedDate =
+            new Date(date);
 
         if (
             Number.isNaN(
-                date.getTime()
+                parsedDate.getTime()
             )
         ) {
-
-            return dateString;
-
+            return date;
         }
 
-
-        return date.toLocaleDateString(
+        return parsedDate.toLocaleDateString(
             "en-IN",
             {
                 day: "2-digit",
@@ -122,7 +61,6 @@ function RecentTransactions() {
                 year: "numeric",
             }
         );
-
     };
 
 
@@ -137,110 +75,15 @@ function RecentTransactions() {
         return amount.toLocaleString(
             "en-IN"
         );
-
     };
 
 
-    /* =========================
-       LOADING
-    ========================= */
-
-    if (loading) {
-
-        return (
-
-            <div className="recent-transactions-card">
-
-                <div className="recent-transactions-header">
-
-                    <div>
-
-                        <h2>
-                            Recent Transactions
-                        </h2>
-
-                        <p>
-                            Your latest financial activity
-                        </p>
-
-                    </div>
-
-                </div>
-
-                <div
-                    className="recent-transactions-loading"
-                    style={{
-                        padding: "24px",
-                    }}
-                >
-
-                    Loading transactions...
-
-                </div>
-
-            </div>
-
-        );
-
-    }
-
-
-    /* =========================
-       ERROR
-    ========================= */
-
-    if (error) {
-
-        return (
-
-            <div className="recent-transactions-card">
-
-                <div className="recent-transactions-header">
-
-                    <div>
-
-                        <h2>
-                            Recent Transactions
-                        </h2>
-
-                        <p>
-                            Your latest financial activity
-                        </p>
-
-                    </div>
-
-                </div>
-
-                <div
-                    className="recent-transactions-error"
-                    style={{
-                        padding: "24px",
-                    }}
-                >
-
-                    {error}
-
-                </div>
-
-            </div>
-
-        );
-
-    }
-
-
-    /* =========================
-       PAGE
-    ========================= */
-
     return (
 
-        <div className="recent-transactions-card">
+        <div className="recent-transactions">
 
 
-            {/* =========================
-                HEADER
-            ========================= */}
+            {/* HEADER */}
 
             <div className="recent-transactions-header">
 
@@ -261,124 +104,85 @@ function RecentTransactions() {
                     href="/transactions"
                     className="view-all-link"
                 >
-                    View all
+                    View all →
                 </a>
 
             </div>
 
 
-            {/* =========================
-                EMPTY STATE
-            ========================= */}
+            {/* TRANSACTIONS */}
 
-            {recentTransactions.length === 0 ? (
-
-                <div
-                    className="recent-transactions-empty"
-                    style={{
-                        padding: "24px",
-                    }}
-                >
-
-                    <p>
-                        No transactions available yet.
-                    </p>
-
-                    <a
-                        href="/transactions"
-                        className="view-all-link"
-                    >
-                        Add your first transaction
-                    </a>
-
-                </div>
-
-            ) : (
+            <div className="recent-transactions-list">
 
 
-                /* =========================
-                   TRANSACTION LIST
-                ========================= */
+                {recentTransactions.length === 0 ? (
 
-                <div className="recent-transactions-list">
+                    <div className="empty-transactions">
 
-                    {recentTransactions.map(
+                        <p>
+                            No transactions available.
+                        </p>
+
+                    </div>
+
+                ) : (
+
+                    recentTransactions.map(
                         (transaction) => (
 
                             <div
-                                className="recent-transaction-row"
+                                className="recent-transaction-item"
                                 key={
-                                    transaction._id ??
+                                    transaction._id ||
                                     `${transaction.merchant}-${transaction.date}-${transaction.amount}`
                                 }
                             >
 
 
-                                {/* =========================
-                                    LEFT SIDE
-                                ========================= */}
+                                {/* LEFT */}
 
                                 <div className="recent-transaction-info">
 
-                                    <div className="recent-transaction-icon">
+                                    <h3>
+                                        {
+                                            transaction.merchant
+                                        }
+                                    </h3>
 
-                                        {transaction.type ===
-                                            "income"
-                                            ? "↓"
-                                            : "↑"}
+                                    <p>
+                                        {
+                                            transaction.category
+                                        }
 
-                                    </div>
+                                        {" • "}
 
-
-                                    <div>
-
-                                        <h3>
-
-                                            {
-                                                transaction.merchant
-                                            }
-
-                                        </h3>
-
-
-                                        <p>
-
-                                            {
-                                                transaction.category
-                                            }
-
-                                            {" • "}
-
-                                            {
-                                                formatDate(
-                                                    transaction.date
-                                                )
-                                            }
-
-                                        </p>
-
-                                    </div>
+                                        {
+                                            formatDate(
+                                                transaction.date
+                                            )
+                                        }
+                                    </p>
 
                                 </div>
 
 
-                                {/* =========================
-                                    RIGHT SIDE
-                                ========================= */}
+                                {/* RIGHT */}
 
                                 <div
                                     className={
                                         transaction.type ===
                                             "income"
-                                            ? "recent-transaction-income"
-                                            : "recent-transaction-expense"
+                                            ? "recent-transaction-amount income"
+                                            : "recent-transaction-amount expense"
                                     }
                                 >
 
-                                    {transaction.type ===
-                                        "income"
-                                        ? "+"
-                                        : "-"}
+                                    {
+                                        transaction.type ===
+                                            "income"
+                                            ? "+"
+                                            : "-"
+                                    }
 
                                     ₹
                                     {
@@ -389,20 +193,17 @@ function RecentTransactions() {
 
                                 </div>
 
-
                             </div>
 
                         )
-                    )}
+                    )
 
-                </div>
+                )}
 
-            )}
+            </div>
 
         </div>
-
     );
-
 }
 
 
