@@ -14,9 +14,15 @@ import type {
 } from "../api/transactions";
 
 import { calculateFinancialHealth } from "../utils/financialHealth";
-
+import { useAuthStore } from "../store/useAuthStore";
 
 function Dashboard() {
+    const { user } = useAuthStore();
+    const displayName = user?.name ? user.name.split(" ")[0] : "Nivish";
+
+    const hour = new Date().getHours();
+    const greeting =
+        hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
     /* =========================
        STATE
@@ -245,9 +251,8 @@ function Dashboard() {
                     <div>
 
                         <h1>
-                            Good afternoon, Nivish 👋
+                            Hi,
                         </h1>
-
                         <p>
                             Loading your financial overview...
                         </p>
@@ -279,7 +284,7 @@ function Dashboard() {
                 <div>
 
                     <h1>
-                        Good afternoon, Nivish 👋
+                        {greeting}, {displayName} 👋
                     </h1>
 
                     <p>
