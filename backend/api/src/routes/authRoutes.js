@@ -4,6 +4,7 @@ const {
     login,
     sendOtp,
     verifyOtp,
+    resendOtp,
     getMe,
     resetPassword,
 } = require("../controllers/authController");
@@ -22,14 +23,19 @@ router.post("/register", register);
 router.post("/login", login);
 
 /*
- * POST /api/auth/send-otp
+ * POST /api/auth/send-otp (MSG91 Official OTP Send)
  */
 router.post("/send-otp", sendOtp);
 
 /*
- * POST /api/auth/verify-otp
+ * POST /api/auth/verify-otp (MSG91 Official OTP Verify)
  */
 router.post("/verify-otp", verifyOtp);
+
+/*
+ * POST /api/auth/resend-otp (MSG91 Official OTP Resend/Retry)
+ */
+router.post("/resend-otp", resendOtp);
 
 /*
  * POST /api/auth/reset-password

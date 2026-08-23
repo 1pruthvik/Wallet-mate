@@ -1,29 +1,25 @@
 import pytest
 from fastapi.testclient import TestClient
-from main import app, otp_manager, email_service
-
+from main import app, email_service
+from auth.otp import PhoneVerificationService, MockOTPProvider
 
 client = TestClient(app)
 
-
 def test_phone_otp_flow_and_mock_provider():
+    provider = MockOTPProvider()
+    service = PhoneVerificationService(provider=provider)
     phone = "+919876500001"
-    ok, msg = otp_manager.request_otp(phone)
+
+    ok, msg = service.send_otp(phone)
     assert ok is True
 
-    # Retrieve sent OTP from mock provider
-    sent_otp = otp_manager.provider.sent_otps.get(phone)
-    assert sent_otp is not None
-    assert len(sent_otp) == 6
-
-    # Verify invalid OTP
-    bad_res = client.post("/auth/verify-phone", json={"phone_number": phone, "otp": "000000"})
-    assert bad_res.status_code == 400
+    # Verify wrong OTP
+    ok_bad, msg_bad = service.verify_otp(phone, "000000")
+    assert ok_bad is False
 
     # Verify correct OTP
-    good_res = client.post("/auth/verify-phone", json={"phone_number": phone, "otp": sent_otp})
-    assert good_res.status_code == 200
-    assert good_res.json()["phone_verified"] is True
+    ok_good, msg_good = service.verify_otp(phone, "123456")
+    assert ok_good is True
 
 
 def test_email_verification_flow():

@@ -1,5 +1,6 @@
 import type { User, AuthResponse, OtpSession, SignupData } from '../types/auth';
 import apiClient from '../api/client';
+import { sendMSG91Otp, retryMSG91Otp, verifyMSG91Otp } from './msg91Service';
 
 const STORAGE_KEYS = {
   USER: 'wallet_mate_auth_user',
@@ -237,7 +238,14 @@ class AuthService {
     const fullPhone = `${countryCode}${cleanDigits}`;
     const fallbackMasked = this.maskPhoneNumber(countryCode, cleanDigits);
 
-    // Call backend API to trigger real SMS OTP via Twilio Verify
+    // 1. Trigger MSG91 exposed method window.sendOtp('919876543210')
+    try {
+      await sendMSG91Otp(fullPhone);
+    } catch (msg91Err) {
+      console.warn('MSG91 client sendOtp notice:', msg91Err);
+    }
+
+    // 2. Call backend API to log session and trigger MSG91 server v5 API
     try {
       const res = await apiClient.post<{
         success: boolean;
@@ -286,8 +294,15 @@ class AuthService {
       throw new Error('Please enter the complete 6-digit verification code.');
     }
 
+    // 1. Call MSG91 exposed method window.verifyOtp('123456')
     try {
-      // Call backend API to verify code with Twilio Verify
+      await verifyMSG91Otp(otp);
+    } catch (msg91Err) {
+      console.warn('MSG91 client verifyOtp notice:', msg91Err);
+    }
+
+    try {
+      // 2. Call backend API to verify code with MSG91 API v5
       const res = await apiClient.post<{
         success: boolean;
         message?: string;
@@ -323,6 +338,24 @@ class AuthService {
         throw new Error(err.response.data.message);
       }
       throw new Error(err.message || 'Failed to verify the SMS code. Please try again.');
+    }
+  }
+
+  async resendPhoneOtp(phone: string, channel = '11'): Promise<{ success: boolean; message: string }> {
+    try {
+      await retryMSG91Otp(channel);
+    } catch (err) {
+      console.warn('MSG91 client retryOtp notice:', err);
+    }
+
+    try {
+      const res = await apiClient.post<{ success: boolean; message: string }>('/auth/resend-otp', {
+        phone,
+        retryType: channel === '4' ? 'voice' : 'text',
+      });
+      return { success: true, message: res.data?.message || 'OTP resent successfully.' };
+    } catch (err: any) {
+      throw new Error(err.response?.data?.message || 'Failed to resend OTP code.');
     }
   }
 

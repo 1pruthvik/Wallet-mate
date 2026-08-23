@@ -6,6 +6,7 @@ const {
     maskPhoneNumber,
     sendVerificationCode,
     checkVerificationCode,
+    resendVerificationCode,
 } = require("../services/smsService");
 
 const JWT_SECRET = process.env.JWT_SECRET || "finmitra_secure_jwt_secret_key_2026";
@@ -300,22 +301,21 @@ const sendOtp = async (req, res) => {
             });
         }
 
-        let twilioRes = null;
+        let msg91Res = null;
         try {
-            twilioRes = await sendVerificationCode(normalized);
-        } catch (twilioErr) {
+            msg91Res = await sendVerificationCode(normalized);
+        } catch (msg91Err) {
             return res.status(400).json({
                 success: false,
-                message: twilioErr.message || "Failed to send SMS verification code.",
+                message: msg91Err.message || "Failed to send SMS verification code via MSG91.",
             });
         }
 
         return res.json({
             success: true,
-            message: `Verification OTP sent via SMS to ${twilioRes.maskedPhone}.`,
+            message: `Verification OTP sent via SMS to ${msg91Res.maskedPhone}.`,
             phone: normalized,
-            maskedPhone: twilioRes.maskedPhone,
-            otpCode: twilioRes.otpCode,
+            maskedPhone: msg91Res.maskedPhone,
         });
     } catch (error) {
         console.error("Send OTP error:", error);
@@ -343,12 +343,20 @@ const verifyOtp = async (req, res) => {
             });
         }
 
+        let verifyResult = null;
         try {
-            await checkVerificationCode(targetPhone, targetOtp);
+            verifyResult = await checkVerificationCode(targetPhone, targetOtp);
         } catch (verifyErr) {
             return res.status(400).json({
                 success: false,
                 message: verifyErr.message || "Verification code is invalid or expired.",
+            });
+        }
+
+        if (!verifyResult || !verifyResult.approved) {
+            return res.status(400).json({
+                success: false,
+                message: verifyResult?.message || "Verification failed. Incorrect OTP.",
             });
         }
 
@@ -383,10 +391,12 @@ const verifyOtp = async (req, res) => {
 
             return res.json({
                 success: true,
+                verified: true,
                 message: "Phone verification successful.",
                 token,
                 user: {
                     id: userObj._id.toString(),
+                    user_id: userObj._id.toString(),
                     name: userObj.fullName,
                     email: userObj.email,
                     phone: userObj.phoneNumber,
@@ -417,10 +427,12 @@ const verifyOtp = async (req, res) => {
         const token = generateToken(memUser);
         return res.json({
             success: true,
+            verified: true,
             message: "Phone verification successful.",
             token,
             user: {
                 id: memUser._id.toString(),
+                user_id: memUser._id.toString(),
                 name: memUser.fullName,
                 email: memUser.email,
                 phone: memUser.phoneNumber,
@@ -436,6 +448,55 @@ const verifyOtp = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Failed to verify OTP.",
+            error: error.message,
+        });
+    }
+};
+
+/*
+ * POST /api/auth/resend-otp
+ */
+const resendOtp = async (req, res) => {
+    try {
+        const { phoneNumber, phone, retryType } = req.body;
+        const targetPhone = (phoneNumber || phone || "").trim();
+
+        if (!targetPhone) {
+            return res.status(400).json({
+                success: false,
+                message: "Please enter a valid mobile number.",
+            });
+        }
+
+        const normalized = normalizePhoneNumber(targetPhone);
+        if (!normalized) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid phone number format.",
+            });
+        }
+
+        let resendRes = null;
+        try {
+            resendRes = await resendVerificationCode(normalized, retryType || "text");
+        } catch (resendErr) {
+            return res.status(400).json({
+                success: false,
+                message: resendErr.message || "Failed to resend OTP.",
+            });
+        }
+
+        return res.json({
+            success: true,
+            message: `OTP resent successfully via SMS to ${resendRes.maskedPhone}.`,
+            phone: normalized,
+            maskedPhone: resendRes.maskedPhone,
+        });
+    } catch (error) {
+        console.error("Resend OTP error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to resend OTP.",
             error: error.message,
         });
     }
@@ -460,6 +521,7 @@ const getMe = async (req, res) => {
                     success: true,
                     user: {
                         id: user._id.toString(),
+                        user_id: user._id.toString(),
                         name: user.fullName,
                         email: user.email,
                         phone: user.phoneNumber,
@@ -476,6 +538,7 @@ const getMe = async (req, res) => {
             success: true,
             user: {
                 id: req.user.userId || req.user.id || "usr_guest",
+                user_id: req.user.userId || req.user.id || "usr_guest",
                 name: req.user.fullName || req.user.name || "FinMitra User",
                 email: req.user.email,
                 phone: req.user.phoneNumber || req.user.phone,
@@ -536,6 +599,7 @@ module.exports = {
     login,
     sendOtp,
     verifyOtp,
+    resendOtp,
     getMe,
     resetPassword,
 };
