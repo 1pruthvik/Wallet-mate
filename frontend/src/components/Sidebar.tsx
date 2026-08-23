@@ -1,9 +1,19 @@
 import { NavLink, useNavigate } from "react-router-dom";
 import { useAuthStore } from "../store/useAuthStore";
-import { LogOut, User } from "lucide-react";
+import WalletMateLogo from "./auth/WalletMateLogo";
+import {
+    LayoutDashboard,
+    ReceiptText,
+    Activity,
+    GraduationCap,
+    Sparkles,
+    TrendingUp,
+    User,
+    LogOut,
+} from "lucide-react";
 
 function Sidebar() {
-    const { user, isAuthenticated, logout } = useAuthStore();
+    const { user, logout } = useAuthStore();
     const navigate = useNavigate();
 
     const handleLogout = () => {
@@ -12,144 +22,135 @@ function Sidebar() {
     };
 
     return (
-        <aside className="sidebar">
-
-            <div className="sidebar-logo">
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{
-                        width: 28,
-                        height: 28,
-                        borderRadius: 6,
-                        background: "linear-gradient(135deg, #635bff 0%, #7b73ff 100%)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "#fff",
-                        fontSize: 14,
-                        fontWeight: "bold"
-                    }}>
-                        W
+        <aside className="wm-sidebar">
+            {/* Logo / Header */}
+            <div className="wm-sidebar-header">
+                <NavLink to="/dashboard" className="wm-sidebar-brand">
+                    <WalletMateLogo size="sm" showText={false} />
+                    <div className="wm-sidebar-brand-text">
+                        <span className="wm-sidebar-title">Wallet-mate</span>
+                        <span className="wm-sidebar-version">v2.0 PRO</span>
                     </div>
-                    <span>Wallet-mate</span>
+                </NavLink>
+            </div>
+
+            {/* Navigation Sections */}
+            <div className="wm-sidebar-content">
+                {/* SECTION 1: MAIN */}
+                <div className="wm-nav-section">
+                    <div className="wm-nav-section-title">MAIN</div>
+                    <nav className="wm-nav-group">
+                        <NavLink
+                            to="/dashboard"
+                            className={({ isActive }) => `wm-nav-item ${isActive ? "active" : ""}`}
+                            id="nav-dashboard"
+                        >
+                            <span className="wm-nav-icon"><LayoutDashboard size={18} /></span>
+                            <span className="wm-nav-text">Dashboard</span>
+                        </NavLink>
+
+                        <NavLink
+                            to="/transactions"
+                            className={({ isActive }) => `wm-nav-item ${isActive ? "active" : ""}`}
+                            id="nav-transactions"
+                        >
+                            <span className="wm-nav-icon"><ReceiptText size={18} /></span>
+                            <span className="wm-nav-text">Transactions</span>
+                        </NavLink>
+
+                        <NavLink
+                            to="/financial-health"
+                            className={({ isActive }) => `wm-nav-item ${isActive ? "active" : ""}`}
+                            id="nav-financial-health"
+                        >
+                            <span className="wm-nav-icon"><Activity size={18} /></span>
+                            <span className="wm-nav-text">Health Engine</span>
+                        </NavLink>
+                    </nav>
+                </div>
+
+                {/* SECTION 2: TOOLS & INTELLIGENCE */}
+                <div className="wm-nav-section">
+                    <div className="wm-nav-section-title">TOOLS & AI</div>
+                    <nav className="wm-nav-group">
+                        <NavLink
+                            to="/learning"
+                            className={({ isActive }) => `wm-nav-item ${isActive ? "active" : ""}`}
+                            id="nav-learning"
+                        >
+                            <span className="wm-nav-icon"><GraduationCap size={18} /></span>
+                            <span className="wm-nav-text">Learning</span>
+                        </NavLink>
+
+                        <NavLink
+                            to="/mentor"
+                            className={({ isActive }) => `wm-nav-item ${isActive ? "active" : ""}`}
+                            id="nav-mentor"
+                        >
+                            <span className="wm-nav-icon"><Sparkles size={18} /></span>
+                            <span className="wm-nav-text">AI Mentor</span>
+                            <span className="wm-nav-pill-ai">AI</span>
+                        </NavLink>
+
+                        <NavLink
+                            to="/trading"
+                            className={({ isActive }) => `wm-nav-item ${isActive ? "active" : ""}`}
+                            id="nav-trading"
+                        >
+                            <span className="wm-nav-icon"><TrendingUp size={18} /></span>
+                            <span className="wm-nav-text">Paper Trading</span>
+                        </NavLink>
+                    </nav>
+                </div>
+
+                {/* SECTION 3: ACCOUNT */}
+                <div className="wm-nav-section">
+                    <div className="wm-nav-section-title">ACCOUNT</div>
+                    <nav className="wm-nav-group">
+                        <NavLink
+                            to="/profile"
+                            className={({ isActive }) => `wm-nav-item ${isActive ? "active" : ""}`}
+                            id="nav-profile"
+                        >
+                            <span className="wm-nav-icon"><User size={18} /></span>
+                            <span className="wm-nav-text">Profile & Goals</span>
+                        </NavLink>
+                    </nav>
                 </div>
             </div>
 
-            <nav className="sidebar-nav">
-
-                <NavLink
-                    to="/dashboard"
-                    className="nav-link"
-                >
-                    Dashboard
-                </NavLink>
-
-                <NavLink
-                    to="/transactions"
-                    className="nav-link"
-                >
-                    Transactions
-                </NavLink>
-
-                <NavLink
-                    to="/financial-health"
-                    className="nav-link"
-                >
-                    Financial Health
-                </NavLink>
-
-                <NavLink
-                    to="/learning"
-                    className="nav-link"
-                >
-                    Learning
-                </NavLink>
-
-                <NavLink
-                    to="/mentor"
-                    className="nav-link"
-                >
-                    AI Mentor
-                </NavLink>
-
-                <NavLink
-                    to="/trading"
-                    className="nav-link"
-                >
-                    Paper Trading
-                </NavLink>
-
-                <NavLink
-                    to="/profile"
-                    className="nav-link"
-                >
-                    Profile
-                </NavLink>
-
-            </nav>
-
-            <div style={{
-                marginTop: "auto",
-                padding: "16px 20px",
-                borderTop: "1px solid var(--border, #e2e8e5)",
-                display: "flex",
-                flexDirection: "column",
-                gap: 12
-            }}>
-                {user ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {/* User Profile Card & Sign Out */}
+            <div className="wm-sidebar-footer">
+                {user && (
+                    <NavLink to="/profile" className="wm-sidebar-user-card" title="View profile">
                         {user.avatar ? (
                             <img
                                 src={user.avatar}
-                                alt={user.name}
-                                style={{ width: 34, height: 34, borderRadius: "50%", objectFit: "cover" }}
+                                alt={user.name || "User"}
+                                className="wm-sidebar-avatar"
                             />
                         ) : (
-                            <div style={{
-                                width: 34,
-                                height: 34,
-                                borderRadius: "50%",
-                                backgroundColor: "#635bff",
-                                color: "#fff",
-                                display: "flex",
-                                alignItems: "center",
-                                justifyContent: "center"
-                            }}>
+                            <div className="wm-sidebar-avatar-fallback">
                                 <User size={16} />
                             </div>
                         )}
-                        <div style={{ overflow: "hidden" }}>
-                            <div style={{ fontSize: "13px", fontWeight: 600, color: "var(--text-strong, #0d1712)", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
-                                {user.name}
-                            </div>
-                            <div style={{ fontSize: "11px", color: "var(--muted, #69756f)", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden" }}>
-                                {user.email || user.phone}
-                            </div>
+                        <div className="wm-sidebar-user-info">
+                            <span className="wm-sidebar-user-name">{user.name || "User"}</span>
+                            <span className="wm-sidebar-user-email">{user.email || user.phone || "Active User"}</span>
                         </div>
-                    </div>
-                ) : null}
+                    </NavLink>
+                )}
 
                 <button
+                    type="button"
                     onClick={handleLogout}
-                    style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 8,
-                        background: "none",
-                        border: "none",
-                        color: "#c84b4b",
-                        fontSize: "13px",
-                        fontWeight: 500,
-                        cursor: "pointer",
-                        padding: "6px 0",
-                        fontFamily: "inherit"
-                    }}
+                    className="wm-sidebar-signout-btn"
                     id="btn-sidebar-logout"
                 >
                     <LogOut size={15} />
-                    <span>{isAuthenticated ? "Sign out" : "Sign in / Switch"}</span>
+                    <span>Sign out</span>
                 </button>
             </div>
-
         </aside>
     );
 }

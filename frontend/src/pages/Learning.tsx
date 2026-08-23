@@ -1,4 +1,14 @@
 import React, { useState } from "react";
+import {
+    BookOpen,
+    CheckCircle2,
+    Award,
+    ChevronRight,
+    X,
+    Lightbulb,
+    Sparkles,
+    Check,
+} from "lucide-react";
 
 interface Lesson {
     id: string;
@@ -42,12 +52,12 @@ const MODULES: Module[] = [
                 content: [
                     "In simple terms, an asset is anything that puts money in your pocket on a recurring or capital appreciation basis (e.g., dividend stocks, rental property, index funds, treasury bonds).",
                     "A liability is anything that takes money out of your pocket through depreciation, interest, and maintenance (e.g., high-interest credit card debt, car loans, depreciating luxury gadgets).",
-                    "FinMitra's core philosophy is to systematically maximize your income-generating assets while capping recurring liabilities."
+                    "Wallet-mate's core philosophy is to systematically maximize your income-generating assets while capping recurring liabilities.",
                 ],
                 keyTakeaways: [
                     "Assets generate positive cashflow or capital growth.",
                     "Liabilities continuously drain monthly surplus.",
-                    "Track your Net Worth = Total Assets - Total Liabilities."
+                    "Track your Net Worth = Total Assets - Total Liabilities.",
                 ],
                 quiz: {
                     question: "Which of the following is considered an asset?",
@@ -55,194 +65,120 @@ const MODULES: Module[] = [
                         "A depreciating luxury car with EMI",
                         "A low-cost broad market index fund",
                         "A credit card balance carried month to month",
-                        "A high-maintenance lifestyle subscription"
+                        "A high-maintenance lifestyle subscription",
                     ],
                     correctAnswer: 1,
-                    explanation: "Broad market index funds appreciate over time and generate returns, making them wealth-building assets."
-                }
+                    explanation: "Broad market index funds appreciate over time and generate compound returns, making them genuine wealth-building assets.",
+                },
             },
             {
                 id: "l-1-2",
                 title: "Understanding Inflation: The Silent Money Thief",
                 duration: "5 min read",
                 level: "Beginner",
-                summary: "Why keeping all your savings in cash guarantees a loss in purchasing power over time.",
+                summary: "Why keeping all your savings in idle cash guarantees a loss in purchasing power over time.",
                 content: [
-                    "Inflation is the rate at which the general level of prices for goods and services rises, eroding purchasing power.",
-                    "In India, historical retail inflation has averaged between 5% and 7% annually. A ₹100 item today will cost approximately ₹196 in 10 years at 7% inflation.",
-                    "Keeping all surplus in a 3% savings bank account causes your real purchasing power to decline by ~3-4% every single year.",
-                    "To build real wealth, your money must be invested in instruments that historically outpace inflation (Equity, Mutual Funds, Gold, Real Estate)."
+                    "Inflation is the rate at which the general level of prices for goods and services rises. When inflation runs at 6% per year, an item that costs ₹100 today will cost ₹106 next year.",
+                    "If your savings sit in an account earning only 3% interest, your real purchasing power is declining by ~3% every year.",
+                    "To beat inflation, a portion of your long-term wealth must be deployed into equity index funds or growth assets that outpace retail CPI inflation.",
                 ],
                 keyTakeaways: [
-                    "Cash loses purchasing power at ~6% annually in India.",
-                    "Real Return = Nominal Investment Return - Inflation Rate.",
-                    "Equity and index funds are proven long-term inflation hedges."
+                    "Cash loses purchasing power every year due to inflation.",
+                    "Real Return = Nominal Return - Inflation Rate.",
+                    "Equities historically provide the most accessible inflation hedge over 5+ year horizons.",
                 ],
                 quiz: {
-                    question: "If an investment yields 7% and annual inflation is 6%, what is your approximate real return?",
+                    question: "If inflation is 6% and your savings account yields 3.5%, what is your real annual return?",
                     options: [
-                        "+13%",
-                        "+1%",
-                        "-1%",
-                        "+7%"
+                        "+3.5%",
+                        "-2.5%",
+                        "+9.5%",
+                        "0%",
                     ],
                     correctAnswer: 1,
-                    explanation: "Real return is calculated by subtracting inflation from nominal return (7% - 6% = 1%)."
-                }
-            }
-        ]
+                    explanation: "Real return is calculated as 3.5% - 6.0% = -2.5% purchasing power loss.",
+                },
+            },
+        ],
     },
     {
         id: "mod-2",
-        title: "The Art of Budgeting & Expense Control",
-        icon: "📊",
+        title: "The 50/30/20 & Zero-Based Budgeting",
+        icon: "⚖️",
         category: "Budgeting",
-        description: "Proven frameworks like the 50/30/20 rule, envelope methods, and plug-the-leak techniques.",
+        description: "Proven frameworks to divide your net income between needs, wants, and financial independence.",
         lessons: [
             {
                 id: "l-2-1",
-                title: "The 50/30/20 Framework (Adapted for India)",
+                title: "The Classic 50/30/20 Rule Decoded",
                 duration: "5 min read",
                 level: "Beginner",
-                summary: "A simple, stress-free formula to allocate every rupee you earn with clarity.",
+                summary: "How to allocate your paycheck so you never have to guess whether you can afford something.",
                 content: [
-                    "The 50/30/20 rule divides your take-home monthly salary into three distinct buckets:",
-                    "1. 50% Needs: Rent/home EMI, groceries, utilities, basic transport, health insurance, school fees.",
-                    "2. 30% Wants: Dining out, weekend trips, cinema, gadgets, streaming subscriptions, shopping.",
-                    "3. 20% Savings & Investments: Emergency fund, SIPs, PPF, index funds, retirement corpus.",
-                    "If your essential living costs exceed 50%, start by trimming discretionary lifestyle spending before reducing your investment percentage."
+                    "The 50/30/20 framework splits your post-tax income into three simple buckets: 50% for Needs (rent, groceries, utilities, EMIs), 30% for Wants (dining out, travel, entertainment), and 20% for Savings & Investments (SIPs, emergency fund, debt paydown).",
+                    "By establishing these proportions automatically at the start of each month, you can spend guilt-free on your 30% wants knowing your future is secured.",
                 ],
                 keyTakeaways: [
-                    "Automate your 20% savings on the day salary arrives.",
-                    "Never exceed 30% on lifestyle wants.",
-                    "Review monthly categorizations on FinMitra to maintain your ratio."
+                    "50% Needs: Housing, food, bills, healthcare.",
+                    "30% Wants: Hobbies, lifestyle, leisure, dining.",
+                    "20% Wealth: Emergency fund, index SIPs, retirement.",
                 ],
                 quiz: {
-                    question: "Under the 50/30/20 rule, what percentage of income should ideally go to savings & investing?",
+                    question: "If your monthly income is ₹60,000, how much should go to savings under the 50/30/20 rule?",
                     options: [
-                        "At least 20%",
-                        "No more than 5%",
-                        "Exactly 50%",
-                        "Whatever is left at the end of the month"
-                    ],
-                    correctAnswer: 0,
-                    explanation: "The rule recommends at least 20% be invested immediately upon receiving salary."
-                }
-            },
-            {
-                id: "l-2-2",
-                title: "Finding & Plugging Micro-Spending Leaks",
-                duration: "4 min read",
-                level: "Intermediate",
-                summary: "How small daily habits like ₹200 food deliveries add up to ₹72,000+ per year.",
-                content: [
-                    "Micro-leaks are frequent, low-friction expenses (cab surges, delivery fees, unused gym or cloud subscriptions, convenience fees) that silently drain savings.",
-                    "A ₹250 daily food delivery fee equates to ₹7,500/month or ₹90,000/year. Compounded over 10 years at 12% in an index fund, that represents over ₹18 Lakhs in lost wealth.",
-                    "FinMitra's Spending Analytics detects recurring merchants and concentration spikes to help you spot these leaks effortlessly."
-                ],
-                keyTakeaways: [
-                    "Small frequent expenses have massive compounding opportunity costs.",
-                    "Audit recurring debit mandates once every 3 months.",
-                    "Use FinMitra's Top Merchants tab to spot habit surges."
-                ],
-                quiz: {
-                    question: "What is the primary danger of unmonitored micro-expenses?",
-                    options: [
-                        "They trigger bank penalties",
-                        "They carry huge compounding opportunity cost over time",
-                        "They lower credit scores directly",
-                        "They cannot be tracked in bank statements"
+                        "₹6,000",
+                        "₹12,000",
+                        "₹18,000",
+                        "₹30,000",
                     ],
                     correctAnswer: 1,
-                    explanation: "Small amounts compounded over decades in lost investment returns equal massive sums."
-                }
-            }
-        ]
+                    explanation: "20% of ₹60,000 is exactly ₹12,000 allocated directly toward savings and investments.",
+                },
+            },
+        ],
     },
     {
         id: "mod-3",
-        title: "Emergency Funds & Financial Safety",
-        icon: "🛡️",
-        category: "Protection",
-        description: "Build an unbreakable safety net so unexpected life events never force you into high-interest debt.",
+        title: "Index Investing & Compound Interest",
+        icon: "📈",
+        category: "Investing",
+        description: "Harness the power of systematic rupee-cost averaging and passive broad-market compounding.",
         lessons: [
             {
                 id: "l-3-1",
-                title: "How to Size & Park Your Emergency Fund",
+                title: "The Magic of Rupee Cost Averaging (SIP)",
                 duration: "6 min read",
-                level: "Beginner",
-                summary: "How much you need, where to keep it for maximum liquidity, and when to use it.",
-                content: [
-                    "An emergency fund is 3 to 6 months of mandatory living expenses (rent + food + bills + EMIs) set aside strictly for crises like job loss, medical emergencies, or family distress.",
-                    "Example: If your basic monthly survival cost is ₹30,000, your target reserve is ₹90,000 to ₹1,80,000.",
-                    "Where to park it: Never invest emergency funds in volatile stocks or locked real estate. Keep 50% in a high-yield savings account and 50% in liquid mutual funds or sweep-in fixed deposits with instant withdrawal."
-                ],
-                keyTakeaways: [
-                    "Target 3 to 6 months of non-negotiable monthly living expenses.",
-                    "Prioritize safety and liquidity over high returns for this fund.",
-                    "Never treat sudden shopping discounts as an emergency."
-                ],
-                quiz: {
-                    question: "Where should your emergency reserve be stored?",
-                    options: [
-                        "In high-risk penny stocks",
-                        "In liquid accounts with instant withdrawal access",
-                        "In long-term lock-in real estate",
-                        "In physical cash buried at home"
-                    ],
-                    correctAnswer: 1,
-                    explanation: "Emergency funds must be 100% liquid and principal-safe so you can access them within minutes."
-                }
-            }
-        ]
-    },
-    {
-        id: "mod-4",
-        title: "Investing & Compounding Intelligence",
-        icon: "🚀",
-        category: "Growth",
-        description: "The mechanics of compounding, systematic investment plans (SIP), index funds, and risk management.",
-        lessons: [
-            {
-                id: "l-4-1",
-                title: "The Eighth Wonder: Power of Compounding",
-                duration: "5 min read",
                 level: "Intermediate",
-                summary: "How time in the market consistently beats timing the market.",
+                summary: "Why automated monthly investing beats trying to time the market peaks and troughs.",
                 content: [
-                    "Compounding happens when the earnings on your investments begin generating their own earnings over time.",
-                    "Consider two investors:",
-                    "Investor A starts investing ₹5,000/month at age 22 and stops at age 32 (10 years total investment = ₹6 Lakhs).",
-                    "Investor B starts investing ₹5,000/month at age 32 and continues until age 60 (28 years total investment = ₹16.8 Lakhs).",
-                    "At 12% annual return, at age 60, Investor A will have approximately ₹1.9 Crore, while Investor B will have ~₹1.5 Crore! Starting 10 years earlier created ₹40 Lakhs more wealth with less than half the total capital invested."
+                    "Rupee-cost averaging through Systematic Investment Plans (SIPs) removes emotion from investing. When markets dip, your fixed rupee amount buys more units; when markets rise, it buys fewer units.",
+                    "Over long periods (7-10+ years), this significantly lowers your average cost per unit and allows compound interest to exponentialize your capital base.",
                 ],
                 keyTakeaways: [
-                    "Time in the market is the single greatest multiplier in wealth creation.",
-                    "Start early, even with ₹500 or ₹1,000 per month.",
-                    "Reinvest all dividends and market gains."
+                    "SIPs eliminate the stress of market timing.",
+                    "Market downturns become buying opportunities for long-term investors.",
+                    "Discipline and time in the market beat timing the market.",
                 ],
                 quiz: {
-                    question: "What factor has the greatest influence on compounding power?",
+                    question: "What is the primary advantage of a monthly SIP over lump-sum market timing?",
                     options: [
-                        "Picking yesterday's top gaining stock",
-                        "Time duration that money remains invested",
-                        "Frequent buying and selling daily",
-                        "Borrowing money to trade options"
+                        "Guarantees you never lose money in any single month",
+                        "Averages down your acquisition cost automatically across market cycles",
+                        "Eliminates government capital gains tax entirely",
+                        "Offers a fixed guaranteed interest rate like a fixed deposit",
                     ],
                     correctAnswer: 1,
-                    explanation: "Compounding is exponential over time; longer time horizons generate vastly superior returns."
-                }
-            }
-        ]
-    }
+                    explanation: "Rupee-cost averaging buys more units at market lows, lowering average holding cost without needing to predict tops or bottoms.",
+                },
+            },
+        ],
+    },
 ];
 
 const Learning: React.FC = () => {
+    const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
     const [selectedCategory, setSelectedCategory] = useState<string>("All");
-    const [activeLesson, setActiveLesson] = useState<Lesson | null>(null);
-    const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
-    const [quizSubmitted, setQuizSubmitted] = useState<boolean>(false);
-    const [completedLessons, setCompletedLessons] = useState<string[]>(() => {
+    const [completedLessonIds, setCompletedLessonIds] = useState<string[]>(() => {
         try {
             const saved = localStorage.getItem("finmitra_completed_lessons");
             return saved ? JSON.parse(saved) : [];
@@ -251,112 +187,113 @@ const Learning: React.FC = () => {
         }
     });
 
-    const categories = ["All", "Basics", "Budgeting", "Protection", "Growth"];
+    // Quiz state
+    const [selectedQuizOption, setSelectedQuizOption] = useState<number | null>(null);
+    const [quizSubmitted, setQuizSubmitted] = useState<boolean>(false);
 
-    const allLessons = MODULES.flatMap((m) => m.lessons);
-    const progressPercentage = Math.round((completedLessons.length / allLessons.length) * 100);
+    const categories = ["All", ...Array.from(new Set(MODULES.map((m) => m.category)))];
 
-    const filteredModules = selectedCategory === "All"
-        ? MODULES
-        : MODULES.filter((m) => m.category === selectedCategory);
+    const filteredModules = MODULES.filter(
+        (m) => selectedCategory === "All" || m.category === selectedCategory
+    );
+
+    const totalLessons = MODULES.reduce((sum, m) => sum + m.lessons.length, 0);
+    const completedCount = completedLessonIds.length;
+    const progressPct = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
 
     const openLesson = (lesson: Lesson) => {
-        setActiveLesson(lesson);
-        setSelectedAnswer(null);
-        setQuizSubmitted(false);
-    };
-
-    const closeLesson = () => {
-        setActiveLesson(null);
-        setSelectedAnswer(null);
+        setSelectedLesson(lesson);
+        setSelectedQuizOption(null);
         setQuizSubmitted(false);
     };
 
     const handleQuizSubmit = () => {
-        if (selectedAnswer === null || !activeLesson) return;
+        if (selectedQuizOption === null || !selectedLesson) return;
         setQuizSubmitted(true);
 
-        if (selectedAnswer === activeLesson.quiz.correctAnswer && !completedLessons.includes(activeLesson.id)) {
-            const updated = [...completedLessons, activeLesson.id];
-            setCompletedLessons(updated);
-            try {
+        if (selectedQuizOption === selectedLesson.quiz.correctAnswer) {
+            if (!completedLessonIds.includes(selectedLesson.id)) {
+                const updated = [...completedLessonIds, selectedLesson.id];
+                setCompletedLessonIds(updated);
                 localStorage.setItem("finmitra_completed_lessons", JSON.stringify(updated));
-            } catch (e) {
-                console.error(e);
             }
         }
     };
 
     return (
-        <div className="learning-page">
-            {/* HEADER */}
-            <div className="page-header">
+        <div className="wm-page-wrapper">
+            {/* Header */}
+            <div className="wm-page-header">
                 <div>
-                    <h1>Financial Education & Curriculum</h1>
-                    <p>Bite-sized, practical financial intelligence designed for real-world wealth creation.</p>
+                    <h1 className="wm-page-title">Financial Education Academy</h1>
+                    <p className="wm-page-subtitle">
+                        Master cashflow optimization, budgeting principles, and long-term wealth compounding.
+                    </p>
                 </div>
 
-                <div className="learning-progress-badge">
-                    <span className="prog-label">Progress: {progressPercentage}%</span>
-                    <div className="prog-bar-mini">
-                        <div className="prog-fill-mini" style={{ width: `${progressPercentage}%` }} />
-                    </div>
-                    <span className="prog-count">{completedLessons.length}/{allLessons.length} Completed</span>
+                <div className="wm-learning-progress-badge">
+                    <Award size={18} color="#635bff" />
+                    <span>{completedCount} of {totalLessons} Lessons Mastered ({progressPct}%)</span>
                 </div>
             </div>
 
-            {/* CATEGORY FILTER PILLS */}
-            <div className="learning-filters">
+            {/* Category Filter Pills */}
+            <div className="wm-tab-pills" style={{ marginBottom: "24px" }}>
                 {categories.map((cat) => (
                     <button
                         key={cat}
                         type="button"
-                        className={`filter-chip ${selectedCategory === cat ? "filter-chip-active" : ""}`}
+                        className={`wm-tab-pill ${selectedCategory === cat ? 'active' : ''}`}
                         onClick={() => setSelectedCategory(cat)}
                     >
-                        {cat}
+                        <span>{cat}</span>
                     </button>
                 ))}
             </div>
 
-            {/* MODULES & LESSONS */}
-            <div className="modules-container">
-                {filteredModules.map((mod) => (
-                    <div key={mod.id} className="module-section">
-                        <div className="module-header-card">
-                            <div className="module-icon-box">{mod.icon}</div>
-                            <div className="module-title-box">
-                                <span className="module-category-tag">{mod.category}</span>
-                                <h2>{mod.title}</h2>
-                                <p>{mod.description}</p>
+            {/* Modules & Lessons Grid */}
+            <div className="wm-modules-grid">
+                {filteredModules.map((module) => (
+                    <div key={module.id} className="wm-card wm-module-card">
+                        <div className="wm-module-header">
+                            <div className="wm-module-icon">{module.icon}</div>
+                            <div>
+                                <span className="wm-module-cat">{module.category}</span>
+                                <h3 className="wm-module-title">{module.title}</h3>
                             </div>
                         </div>
+                        <p className="wm-module-desc">{module.description}</p>
 
-                        <div className="lessons-grid">
-                            {mod.lessons.map((lesson) => {
-                                const isDone = completedLessons.includes(lesson.id);
-
+                        <div className="wm-lessons-list">
+                            {module.lessons.map((lesson) => {
+                                const isCompleted = completedLessonIds.includes(lesson.id);
                                 return (
                                     <div
                                         key={lesson.id}
-                                        className={`lesson-card ${isDone ? "lesson-card-completed" : ""}`}
+                                        className={`wm-lesson-item ${isCompleted ? 'completed' : ''}`}
                                         onClick={() => openLesson(lesson)}
                                     >
-                                        <div className="lesson-card-top">
-                                            <span className="lesson-level-badge">{lesson.level}</span>
-                                            <span className="lesson-duration-text">{lesson.duration}</span>
+                                        <div className="wm-lesson-info">
+                                            <div className="wm-lesson-status-icon">
+                                                {isCompleted ? (
+                                                    <CheckCircle2 size={16} color="#10b981" />
+                                                ) : (
+                                                    <BookOpen size={16} color="#635bff" />
+                                                )}
+                                            </div>
+                                            <div>
+                                                <h5 className="wm-lesson-title">{lesson.title}</h5>
+                                                <div className="wm-lesson-meta">
+                                                    <span>{lesson.duration}</span>
+                                                    <span>•</span>
+                                                    <span>{lesson.level}</span>
+                                                </div>
+                                            </div>
                                         </div>
 
-                                        <h3>{lesson.title}</h3>
-                                        <p>{lesson.summary}</p>
-
-                                        <div className="lesson-card-footer">
-                                            {isDone ? (
-                                                <span className="lesson-done-tag">✓ Completed</span>
-                                            ) : (
-                                                <span className="lesson-start-link">Start Lesson →</span>
-                                            )}
-                                        </div>
+                                        <button type="button" className="wm-lesson-arrow-btn">
+                                            <ChevronRight size={16} />
+                                        </button>
                                     </div>
                                 );
                             })}
@@ -365,57 +302,67 @@ const Learning: React.FC = () => {
                 ))}
             </div>
 
-            {/* LESSON READER MODAL */}
-            {activeLesson && (
-                <div className="lesson-modal-overlay" onClick={closeLesson}>
-                    <div className="lesson-modal-content" onClick={(e) => e.stopPropagation()}>
-                        <div className="lesson-modal-header">
+            {/* Lesson Reader Modal */}
+            {selectedLesson && (
+                <div className="wm-modal-backdrop" onClick={() => setSelectedLesson(null)}>
+                    <div className="wm-modal-card wm-lesson-modal" onClick={(e) => e.stopPropagation()}>
+                        <div className="wm-modal-header">
                             <div>
-                                <span className="lesson-level-badge">{activeLesson.level} • {activeLesson.duration}</span>
-                                <h2>{activeLesson.title}</h2>
+                                <div className="wm-lesson-modal-badge">
+                                    <BookOpen size={13} />
+                                    <span>{selectedLesson.duration} • {selectedLesson.level}</span>
+                                </div>
+                                <h3>{selectedLesson.title}</h3>
                             </div>
-                            <button type="button" className="modal-close-btn" onClick={closeLesson}>×</button>
+                            <button type="button" onClick={() => setSelectedLesson(null)} className="wm-modal-close-btn">
+                                <X size={18} />
+                            </button>
                         </div>
 
-                        <div className="lesson-modal-body">
-                            {/* ARTICLE CONTENT */}
-                            <div className="lesson-article-text">
-                                {activeLesson.content.map((p, idx) => (
-                                    <p key={idx}>{p}</p>
+                        <div className="wm-lesson-modal-body">
+                            {/* Summary callout */}
+                            <div className="wm-lesson-summary-box">
+                                <Lightbulb size={18} color="#635bff" />
+                                <p>{selectedLesson.summary}</p>
+                            </div>
+
+                            {/* Paragraphs */}
+                            <div className="wm-lesson-text-content">
+                                {selectedLesson.content.map((p, i) => (
+                                    <p key={i}>{p}</p>
                                 ))}
                             </div>
 
-                            {/* KEY TAKEAWAYS */}
-                            <div className="lesson-takeaways-box">
-                                <h3>💡 Key Takeaways</h3>
+                            {/* Key takeaways */}
+                            <div className="wm-takeaways-box">
+                                <h5>Key Financial Principles</h5>
                                 <ul>
-                                    {activeLesson.keyTakeaways.map((item, idx) => (
-                                        <li key={idx}>{item}</li>
+                                    {selectedLesson.keyTakeaways.map((k, i) => (
+                                        <li key={i}>
+                                            <Check size={14} color="#10b981" />
+                                            <span>{k}</span>
+                                        </li>
                                     ))}
                                 </ul>
                             </div>
 
-                            {/* KNOWLEDGE CHECK QUIZ */}
-                            <div className="lesson-quiz-box">
-                                <div className="quiz-header">
-                                    <h3>🧠 Quick Knowledge Check</h3>
-                                    <span>Test your understanding</span>
+                            {/* Knowledge Check Quiz */}
+                            <div className="wm-quiz-box">
+                                <div className="wm-quiz-header">
+                                    <Sparkles size={16} color="#635bff" />
+                                    <h4>Knowledge Check</h4>
                                 </div>
+                                <p className="wm-quiz-question">{selectedLesson.quiz.question}</p>
 
-                                <p className="quiz-question">{activeLesson.quiz.question}</p>
-
-                                <div className="quiz-options-list">
-                                    {activeLesson.quiz.options.map((opt, idx) => {
-                                        let btnClass = "quiz-option-btn";
-                                        if (selectedAnswer === idx) {
-                                            btnClass += " quiz-option-selected";
-                                        }
+                                <div className="wm-quiz-options">
+                                    {selectedLesson.quiz.options.map((opt, idx) => {
+                                        const isSelected = selectedQuizOption === idx;
+                                        const isCorrect = idx === selectedLesson.quiz.correctAnswer;
+                                        let btnClass = "wm-quiz-opt";
+                                        if (isSelected) btnClass += " selected";
                                         if (quizSubmitted) {
-                                            if (idx === activeLesson.quiz.correctAnswer) {
-                                                btnClass += " quiz-option-correct";
-                                            } else if (selectedAnswer === idx) {
-                                                btnClass += " quiz-option-wrong";
-                                            }
+                                            if (isCorrect) btnClass += " correct";
+                                            else if (isSelected && !isCorrect) btnClass += " incorrect";
                                         }
 
                                         return (
@@ -423,11 +370,11 @@ const Learning: React.FC = () => {
                                                 key={idx}
                                                 type="button"
                                                 className={btnClass}
+                                                onClick={() => !quizSubmitted && setSelectedQuizOption(idx)}
                                                 disabled={quizSubmitted}
-                                                onClick={() => setSelectedAnswer(idx)}
                                             >
-                                                <span className="option-letter">{String.fromCharCode(65 + idx)}</span>
-                                                <span className="option-text">{opt}</span>
+                                                <span className="opt-indicator">{String.fromCharCode(65 + idx)}</span>
+                                                <span className="opt-text">{opt}</span>
                                             </button>
                                         );
                                     })}
@@ -436,29 +383,34 @@ const Learning: React.FC = () => {
                                 {!quizSubmitted ? (
                                     <button
                                         type="button"
-                                        className="quiz-submit-btn"
-                                        disabled={selectedAnswer === null}
                                         onClick={handleQuizSubmit}
+                                        disabled={selectedQuizOption === null}
+                                        className="wm-btn-primary"
+                                        style={{ marginTop: "16px", width: "100%" }}
                                     >
                                         Submit Answer
                                     </button>
                                 ) : (
-                                    <div className="quiz-feedback-box">
-                                        <div className="feedback-result">
-                                            {selectedAnswer === activeLesson.quiz.correctAnswer ? (
-                                                <span className="result-correct">🎉 Correct! Lesson marked as completed.</span>
+                                    <div className="wm-quiz-explanation">
+                                        <div className="explanation-title">
+                                            {selectedQuizOption === selectedLesson.quiz.correctAnswer ? (
+                                                <span style={{ color: "#10b981", fontWeight: 600 }}>🎉 Correct! Mastered this lesson.</span>
                                             ) : (
-                                                <span className="result-wrong">Incorrect. Review the explanation below:</span>
+                                                <span style={{ color: "#ef4444", fontWeight: 600 }}>❌ Not quite. Review explanation:</span>
                                             )}
                                         </div>
-                                        <p className="feedback-explanation">{activeLesson.quiz.explanation}</p>
+                                        <p>{selectedLesson.quiz.explanation}</p>
                                     </div>
                                 )}
                             </div>
                         </div>
 
-                        <div className="lesson-modal-footer">
-                            <button type="button" className="btn-secondary" onClick={closeLesson}>
+                        <div className="wm-modal-actions">
+                            <button
+                                type="button"
+                                onClick={() => setSelectedLesson(null)}
+                                className="wm-btn-secondary"
+                            >
                                 Close Lesson
                             </button>
                         </div>

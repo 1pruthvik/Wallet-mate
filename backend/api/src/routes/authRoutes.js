@@ -2,6 +2,7 @@ const express = require("express");
 const {
     register,
     login,
+    googleAuth,
     sendOtp,
     verifyOtp,
     getMe,
@@ -20,6 +21,11 @@ router.post("/register", register);
  * POST /api/auth/login
  */
 router.post("/login", login);
+
+/*
+ * POST /api/auth/google
+ */
+router.post("/google", googleAuth);
 
 /*
  * POST /api/auth/send-otp

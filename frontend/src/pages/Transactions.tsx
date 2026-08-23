@@ -1,1225 +1,544 @@
-import { useEffect, useState } from "react";
-
+import { useEffect, useMemo, useState } from "react";
 import {
     getTransactions,
     createTransaction,
+    deleteTransaction,
+    type Transaction,
 } from "../api/transactions";
-
-import type {
-    Transaction,
-} from "../api/transactions";
-
 import BankStatementModal from "../components/BankStatementModal";
-
 import { useForm } from "react-hook-form";
-
 import { z } from "zod";
-
+import { zodResolver } from "@hookform/resolvers/zod";
 import {
-    zodResolver,
-} from "@hookform/resolvers/zod";
+    Search,
+    Plus,
+    FileUp,
+    Trash2,
+    ArrowUpRight,
+    ArrowDownRight,
+    ReceiptText,
+    X,
+    Loader2,
+} from "lucide-react";
 
-
-/* =========================================================
-   CONSTANTS
-========================================================= */
-
-const categories = [
-    "Income",
+const CATEGORIES = [
+    "Salary",
+    "Freelance",
+    "Investment",
     "Food",
+    "Dining",
     "Shopping",
     "Transport",
-    "Entertainment",
     "Bills",
+    "Utilities",
+    "Entertainment",
+    "Health",
+    "Education",
     "Other",
 ];
 
-
-/* =========================================================
-   FORM VALIDATION
-========================================================= */
-
 const transactionSchema = z.object({
-
-    merchant: z
-        .string()
-        .trim()
-        .min(
-            2,
-            "Merchant name must be at least 2 characters"
-        ),
-
-    category: z
-        .string()
-        .min(
-            1,
-            "Please select a category"
-        ),
-
-    amount: z
-        .number({
-            error: "Amount must be a number",
-        })
-        .positive(
-            "Amount must be greater than 0"
-        ),
-
-    date: z
-        .string()
-        .min(
-            1,
-            "Please select a date"
-        ),
-
-    type: z.enum([
-        "income",
-        "expense",
-    ]),
+    merchant: z.string().trim().min(2, "Merchant name must be at least 2 characters"),
+    category: z.string().min(1, "Please select a category"),
+    amount: z.number().positive("Amount must be greater than 0"),
+    date: z.string().min(1, "Please select a date"),
+    type: z.enum(["income", "expense"]),
+    notes: z.string().optional(),
 });
 
-
-type TransactionFormData =
-    z.infer<typeof transactionSchema>;
-
-
-/* =========================================================
-   HELPER FUNCTION
-========================================================= */
-
-const formatDate = (date: string) => {
-
-    if (!date) {
-        return "-";
-    }
-
-    const parsedDate = new Date(date);
-
-    if (Number.isNaN(parsedDate.getTime())) {
-        return date;
-    }
-
-    return parsedDate.toLocaleDateString(
-        "en-IN",
-        {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-        }
-    );
-};
-
-
-/* =========================================================
-   TRANSACTIONS COMPONENT
-========================================================= */
+type TransactionFormData = z.infer<typeof transactionSchema>;
 
 function Transactions() {
-
-    /* =====================================================
-       STATE
-    ===================================================== */
-
-    const [
-        transactions,
-        setTransactions,
-    ] = useState<Transaction[]>([]);
-
-
-    const [
-        search,
-        setSearch,
-    ] = useState("");
-
-
-    const [
-        category,
-        setCategory,
-    ] = useState("All");
-
-
-    const [
-        showForm,
-        setShowForm,
-    ] = useState(false);
-
-
-    const [
-        loading,
-        setLoading,
-    ] = useState(true);
-
-
-    const [
-        saving,
-        setSaving,
-    ] = useState(false);
-
-
-    const [
-        error,
-        setError,
-    ] = useState("");
-
-    const [
-        showStatementModal,
-        setShowStatementModal,
-    ] = useState(false);
-
-    const [
-        successMessage,
-        setSuccessMessage,
-    ] = useState("");
-
-
-    /* =====================================================
-       FORM
-    ===================================================== */
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [searchTerm, setSearchTerm] = useState("");
+    const [typeFilter, setTypeFilter] = useState<"all" | "income" | "expense">("all");
+    const [categoryFilter, setCategoryFilter] = useState("all");
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [showStatementModal, setShowStatementModal] = useState(false);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [feedbackMsg, setFeedbackMsg] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
     const {
         register,
         handleSubmit,
         reset,
-        formState: {
-            errors,
-        },
+        formState: { errors, isSubmitting },
     } = useForm<TransactionFormData>({
-
-        resolver:
-            zodResolver(
-                transactionSchema
-            ),
-
+        resolver: zodResolver(transactionSchema),
         defaultValues: {
             type: "expense",
-            category: "",
-            merchant: "",
-            amount: undefined,
-            date: "",
+            date: new Date().toISOString().split("T")[0],
+            category: "Food",
         },
     });
 
-
-    /* =====================================================
-       LOAD TRANSACTIONS FROM BACKEND
-    ===================================================== */
+    const loadData = async () => {
+        try {
+            setLoading(true);
+            const data = await getTransactions();
+            setTransactions(data || []);
+        } catch (error) {
+            console.error("Failed to load transactions:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-
-        const loadTransactions =
-            async () => {
-
-                try {
-
-                    setLoading(true);
-
-                    setError("");
-
-                    const data =
-                        await getTransactions();
-
-                    setTransactions(data);
-
-                } catch (err) {
-
-                    console.error(
-                        "Failed to load transactions:",
-                        err
-                    );
-
-                    setError(
-                        "Unable to load transactions. Please make sure the backend server is running."
-                    );
-
-                } finally {
-
-                    setLoading(false);
-
-                }
-            };
-
-
-        loadTransactions();
-
+        loadData();
     }, []);
 
-
-    /* =====================================================
-       FILTER TRANSACTIONS
-    ===================================================== */
-
-    const filteredTransactions =
-        transactions.filter(
-            (transaction) => {
-
-                const merchant =
-                    transaction.merchant
-                        ?.toLowerCase() ?? "";
-
-
-                const searchText =
-                    search
-                        .toLowerCase()
-                        .trim();
-
-
-                const matchesSearch =
-                    merchant.includes(
-                        searchText
-                    );
-
-
-                const matchesCategory =
-                    category === "All" ||
-                    transaction.category ===
-                    category;
-
-
-                return (
-                    matchesSearch &&
-                    matchesCategory
-                );
-            }
-        );
-
-
-    /* =====================================================
-       TOTAL INCOME
-    ===================================================== */
-
-    const totalIncome =
-        transactions
-            .filter(
-                (transaction) =>
-                    transaction.type ===
-                    "income"
-            )
-            .reduce(
-                (
-                    total,
-                    transaction
-                ) =>
-                    total +
-                    Number(
-                        transaction.amount
-                    ),
-                0
-            );
-
-
-    /* =====================================================
-       TOTAL EXPENSES
-    ===================================================== */
-
-    const totalExpenses =
-        transactions
-            .filter(
-                (transaction) =>
-                    transaction.type ===
-                    "expense"
-            )
-            .reduce(
-                (
-                    total,
-                    transaction
-                ) =>
-                    total +
-                    Number(
-                        transaction.amount
-                    ),
-                0
-            );
-
-
-    /* =====================================================
-       ADD TRANSACTION
-    ===================================================== */
-
-    const onSubmit =
-        async (
-            data: TransactionFormData
-        ) => {
-
-            try {
-
-                setSaving(true);
-
-                setError("");
-
-
-                /*
-                 * Send transaction to backend.
-                 *
-                 * The backend will create the MongoDB
-                 * document and return the saved transaction.
-                 */
-
-                const newTransaction =
-                    await createTransaction({
-
-                        merchant:
-                            data.merchant.trim(),
-
-                        category:
-                            data.category,
-
-                        amount:
-                            data.amount,
-
-                        date:
-                            data.date,
-
-                        type:
-                            data.type,
-
-                    });
-
-
-                /*
-                 * Add the newly created transaction
-                 * to the beginning of our list.
-                 */
-
-                setTransactions(
-                    (current) => [
-                        newTransaction,
-                        ...current,
-                    ]
-                );
-
-
-                /*
-                 * Clear the form.
-                 */
-
-                reset({
-                    merchant: "",
-                    category: "",
-                    amount: undefined,
-                    date: "",
-                    type: "expense",
-                });
-
-
-                /*
-                 * Close modal.
-                 */
-
-                setShowForm(false);
-
-
-            } catch (err) {
-
-                console.error(
-                    "Failed to create transaction:",
-                    err
-                );
-
-                setError(
-                    "Failed to add transaction. Please make sure the backend server is running."
-                );
-
-            } finally {
-
-                setSaving(false);
-
-            }
-        };
-
-
-    /* =====================================================
-       OPEN FORM
-    ===================================================== */
-
-    const openForm = () => {
-
-        setError("");
-
-        reset({
-            merchant: "",
-            category: "",
-            amount: undefined,
-            date: "",
-            type: "expense",
-        });
-
-        setShowForm(true);
-    };
-
-
-    /* =====================================================
-       CLOSE FORM
-    ===================================================== */
-
-    const closeForm = () => {
-
-        if (saving) {
-            return;
+    const onAddSubmit = async (formData: TransactionFormData) => {
+        try {
+            const created = await createTransaction({
+                merchant: formData.merchant,
+                category: formData.category,
+                amount: Number(formData.amount),
+                date: new Date(formData.date).toISOString(),
+                type: formData.type,
+                notes: formData.notes,
+                source: { type: "manual" },
+            });
+            setTransactions((prev) => [created, ...prev]);
+            setShowAddModal(false);
+            reset();
+            setFeedbackMsg({ text: "Transaction added successfully.", type: "success" });
+            setTimeout(() => setFeedbackMsg(null), 4000);
+        } catch (err: any) {
+            console.error("Add transaction error:", err);
+            setFeedbackMsg({ text: err.message || "Failed to add transaction.", type: "error" });
         }
-
-        setShowForm(false);
-
-        reset({
-            merchant: "",
-            category: "",
-            amount: undefined,
-            date: "",
-            type: "expense",
-        });
     };
 
+    const handleDelete = async (id?: string) => {
+        if (!id) return;
+        if (!window.confirm("Are you sure you want to delete this transaction record?")) return;
 
-    /* =====================================================
-       LOADING SCREEN
-    ===================================================== */
+        try {
+            setDeletingId(id);
+            await deleteTransaction(id);
+            setTransactions((prev) => prev.filter((t) => (t._id || t.id) !== id));
+            setFeedbackMsg({ text: "Transaction removed.", type: "success" });
+            setTimeout(() => setFeedbackMsg(null), 3000);
+        } catch (err) {
+            console.error("Delete error:", err);
+            setFeedbackMsg({ text: "Failed to delete transaction.", type: "error" });
+        } finally {
+            setDeletingId(null);
+        }
+    };
 
-    if (loading) {
+    const filteredTransactions = useMemo(() => {
+        return transactions.filter((t) => {
+            const matchSearch =
+                (t.merchant || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (t.category || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (t.notes || "").toLowerCase().includes(searchTerm.toLowerCase());
 
-        return (
+            const matchType = typeFilter === "all" || t.type === typeFilter;
+            const matchCategory = categoryFilter === "all" || (t.category || "").toLowerCase() === categoryFilter.toLowerCase();
 
-            <div className="transactions-page">
+            return matchSearch && matchType && matchCategory;
+        });
+    }, [transactions, searchTerm, typeFilter, categoryFilter]);
 
-                <div className="page-header">
+    const totalIncome = useMemo(() => {
+        return filteredTransactions
+            .filter((t) => t.type === "income")
+            .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    }, [filteredTransactions]);
 
-                    <div>
+    const totalExpenses = useMemo(() => {
+        return filteredTransactions
+            .filter((t) => t.type === "expense")
+            .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    }, [filteredTransactions]);
 
-                        <h1>
-                            Transactions
-                        </h1>
-
-                        <p>
-                            Loading your
-                            transactions...
-                        </p>
-
-                    </div>
-
-                </div>
-
-            </div>
-        );
-    }
-
-
-    /* =====================================================
-       MAIN PAGE
-    ===================================================== */
+    const formatDate = (dateStr?: string) => {
+        if (!dateStr) return "-";
+        const d = new Date(dateStr);
+        if (Number.isNaN(d.getTime())) return dateStr;
+        return d.toLocaleDateString("en-IN", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+        });
+    };
 
     return (
-
-        <div className="transactions-page">
-
-
-            {/* =================================================
-                PAGE HEADER
-            ================================================= */}
-
-            <div className="page-header">
-
+        <div className="wm-page-wrapper">
+            {/* Page Header */}
+            <div className="wm-page-header">
                 <div>
-
-                    <h1>
-                        Transactions
-                    </h1>
-
-                    <p>
-                        Track and manage your
-                        financial activity.
+                    <h1 className="wm-page-title">Transactions Ledger</h1>
+                    <p className="wm-page-subtitle">
+                        Inspect, search, and manage all user-verified credits and debits stored in your database.
                     </p>
-
                 </div>
 
-
-                <div className="page-header-actions">
+                <div className="wm-header-actions">
                     <button
                         type="button"
-                        className="import-statement-button"
                         onClick={() => setShowStatementModal(true)}
+                        className="wm-btn-secondary"
+                        id="btn-transactions-import"
                     >
-                        <svg
-                            width="16"
-                            height="16"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            style={{ marginRight: "6px" }}
-                        >
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                            <polyline points="14 2 14 8 20 8" />
-                            <path d="M12 18v-6" />
-                            <path d="m9 15 3-3 3 3" />
-                        </svg>
-                        Import Bank Statement
+                        <FileUp size={16} />
+                        <span>Import Statement</span>
                     </button>
 
                     <button
                         type="button"
-                        className="add-transaction-button"
-                        onClick={openForm}
+                        onClick={() => setShowAddModal(true)}
+                        className="wm-btn-primary"
+                        id="btn-transactions-add"
                     >
-                        + Add Transaction
+                        <Plus size={16} />
+                        <span>Add Transaction</span>
                     </button>
                 </div>
-
             </div>
 
-
-            {/* =================================================
-                SUCCESS MESSAGE
-            ================================================= */}
-
-            {successMessage && (
-                <div
-                    className="form-success-banner"
-                    style={{
-                        marginBottom: "20px",
-                    }}
-                >
-                    {successMessage}
+            {/* Feedback Alert */}
+            {feedbackMsg && (
+                <div className={`wm-alert ${feedbackMsg.type === 'success' ? 'wm-alert-success' : 'wm-alert-error'}`} style={{ marginBottom: "20px" }}>
+                    <span>{feedbackMsg.text}</span>
                 </div>
             )}
 
-
-            {/* =================================================
-                ERROR MESSAGE
-            ================================================= */}
-
-            {error && (
-
-                <div
-                    className="form-error"
-                    style={{
-                        marginBottom: "20px",
-                    }}
-                >
-                    {error}
+            {/* Metric Overview Bar */}
+            <div className="wm-tx-metrics-bar">
+                <div className="wm-tx-metric-box">
+                    <span className="label">Total Records</span>
+                    <span className="value">{filteredTransactions.length}</span>
                 </div>
-
-            )}
-
-
-            {/* =================================================
-                SUMMARY CARDS
-            ================================================= */}
-
-            <div className="transaction-summary">
-
-
-                {/* TOTAL TRANSACTIONS */}
-
-                <div className="summary-card">
-
-                    <p>
-                        Total Transactions
-                    </p>
-
-                    <h2>
-                        {
-                            transactions.length
-                        }
-                    </h2>
-
+                <div className="wm-tx-metric-divider" />
+                <div className="wm-tx-metric-box">
+                    <span className="label">Filtered Inflow</span>
+                    <span className="value income">+₹{totalIncome.toLocaleString("en-IN")}</span>
                 </div>
-
-
-                {/* TOTAL INCOME */}
-
-                <div className="summary-card">
-
-                    <p>
-                        Total Income
-                    </p>
-
-                    <h2>
-                        ₹
-                        {totalIncome.toLocaleString(
-                            "en-IN"
-                        )}
-                    </h2>
-
+                <div className="wm-tx-metric-divider" />
+                <div className="wm-tx-metric-box">
+                    <span className="label">Filtered Outflow</span>
+                    <span className="value expense">-₹{totalExpenses.toLocaleString("en-IN")}</span>
                 </div>
-
-
-                {/* TOTAL EXPENSES */}
-
-                <div className="summary-card">
-
-                    <p>
-                        Total Expenses
-                    </p>
-
-                    <h2>
-                        ₹
-                        {totalExpenses.toLocaleString(
-                            "en-IN"
-                        )}
-                    </h2>
-
-                </div>
-
-
-            </div>
-
-
-            {/* =================================================
-                SEARCH + CATEGORY FILTER
-            ================================================= */}
-
-            <div className="transaction-controls">
-
-
-                {/* SEARCH */}
-
-                <input
-                    type="text"
-                    placeholder="Search transactions..."
-                    value={search}
-                    onChange={(event) =>
-                        setSearch(
-                            event.target.value
-                        )
-                    }
-                />
-
-
-                {/* CATEGORY */}
-
-                <select
-                    value={category}
-                    onChange={(event) =>
-                        setCategory(
-                            event.target.value
-                        )
-                    }
-                >
-
-                    <option value="All">
-                        All Categories
-                    </option>
-
-
-                    {categories.map(
-                        (item) => (
-
-                            <option
-                                key={item}
-                                value={item}
-                            >
-                                {item}
-                            </option>
-
-                        )
-                    )}
-
-                </select>
-
-
-            </div>
-
-
-            {/* =================================================
-                TRANSACTIONS TABLE
-            ================================================= */}
-
-            <div className="transactions-table-card">
-
-
-                {/* TABLE HEADER */}
-
-                <div className="table-header">
-
-                    <h2>
-                        All Transactions
-                    </h2>
-
-                    <span>
-                        {
-                            filteredTransactions.length
-                        }{" "}
-                        results
+                <div className="wm-tx-metric-divider" />
+                <div className="wm-tx-metric-box">
+                    <span className="label">Net Position</span>
+                    <span className={`value ${(totalIncome - totalExpenses) >= 0 ? 'income' : 'expense'}`}>
+                        ₹{(totalIncome - totalExpenses).toLocaleString("en-IN")}
                     </span>
+                </div>
+            </div>
 
+            {/* Search & Filter Toolbar */}
+            <div className="wm-table-toolbar">
+                <div className="wm-search-input-wrapper">
+                    <Search size={16} className="wm-search-icon" />
+                    <input
+                        type="text"
+                        placeholder="Search merchant, category, or note..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="wm-search-input"
+                    />
+                    {searchTerm && (
+                        <button
+                            type="button"
+                            onClick={() => setSearchTerm("")}
+                            className="wm-clear-search-btn"
+                        >
+                            <X size={14} />
+                        </button>
+                    )}
                 </div>
 
-
-                {/* TABLE */}
-
-                <div className="transaction-table">
-
-
-                    {/* COLUMN HEADERS */}
-
-                    <div className="table-row table-heading">
-
-                        <span>
-                            Merchant
-                        </span>
-
-                        <span>
-                            Category
-                        </span>
-
-                        <span>
-                            Date
-                        </span>
-
-                        <span>
-                            Amount
-                        </span>
-
+                <div className="wm-filter-group">
+                    {/* Type Filter */}
+                    <div className="wm-segmented-control">
+                        <button
+                            type="button"
+                            className={`wm-seg-btn ${typeFilter === 'all' ? 'active' : ''}`}
+                            onClick={() => setTypeFilter('all')}
+                        >
+                            All
+                        </button>
+                        <button
+                            type="button"
+                            className={`wm-seg-btn ${typeFilter === 'income' ? 'active' : ''}`}
+                            onClick={() => setTypeFilter('income')}
+                        >
+                            Income
+                        </button>
+                        <button
+                            type="button"
+                            className={`wm-seg-btn ${typeFilter === 'expense' ? 'active' : ''}`}
+                            onClick={() => setTypeFilter('expense')}
+                        >
+                            Expenses
+                        </button>
                     </div>
 
-
-                    {/* NO RESULTS */}
-
-                    {filteredTransactions.length ===
-                        0 ? (
-
-                        <div
-                            className="table-row"
-                            style={{
-                                display: "block",
-                                textAlign: "center",
-                                padding: "30px",
-                            }}
+                    {/* Category Filter */}
+                    <div className="wm-select-wrapper">
+                        <select
+                            value={categoryFilter}
+                            onChange={(e) => setCategoryFilter(e.target.value)}
+                            className="wm-select"
                         >
-
-                            <span>
-                                No transactions found.
-                            </span>
-
-                        </div>
-
-                    ) : (
-
-
-                        /* TRANSACTION ROWS */
-
-                        filteredTransactions.map(
-                            (
-                                transaction,
-                                index
-                            ) => (
-
-                                <div
-                                    className="table-row"
-                                    key={
-                                        transaction._id ??
-                                        `${transaction.merchant}-${transaction.date}-${index}`
-                                    }
-                                >
-
-
-                                    {/* MERCHANT */}
-
-                                    <span className="merchant-name">
-
-                                        {
-                                            transaction.merchant
-                                        }
-
-                                    </span>
-
-
-                                    {/* CATEGORY */}
-
-                                    <span>
-
-                                        <span className="category-badge">
-
-                                            {
-                                                transaction.category
-                                            }
-
-                                        </span>
-
-                                    </span>
-
-
-                                    {/* DATE */}
-
-                                    <span className="transaction-date">
-
-                                        {
-                                            formatDate(
-                                                transaction.date
-                                            )
-                                        }
-
-                                    </span>
-
-
-                                    {/* AMOUNT */}
-
-                                    <span
-                                        className={
-                                            transaction.type ===
-                                                "income"
-                                                ? "income-amount"
-                                                : "expense-amount"
-                                        }
-                                    >
-
-                                        {
-                                            transaction.type ===
-                                                "income"
-                                                ? "+"
-                                                : "-"
-                                        }
-
-                                        ₹
-
-                                        {
-                                            Number(
-                                                transaction.amount
-                                            ).toLocaleString(
-                                                "en-IN"
-                                            )
-                                        }
-
-                                    </span>
-
-
-                                </div>
-
-                            )
-                        )
-
-                    )}
-
+                            <option value="all">All Categories</option>
+                            {CATEGORIES.map((cat) => (
+                                <option key={cat} value={cat}>
+                                    {cat}
+                                </option>
+                            ))}
+                        </select>
+                    </div>
                 </div>
-
             </div>
 
-
-            {/* =================================================
-                ADD TRANSACTION MODAL
-            ================================================= */}
-
-            {showForm && (
-
-                <div
-                    className="modal-overlay"
-                    onClick={closeForm}
-                >
-
-
-                    <div
-                        className="transaction-modal"
-                        onClick={(event) =>
-                            event.stopPropagation()
-                        }
-                    >
-
-
-                        {/* =================================================
-                            MODAL HEADER
-                        ================================================= */}
-
-                        <div className="modal-header">
-
-
-                            <div>
-
-                                <h2>
-                                    Add Transaction
-                                </h2>
-
-                                <p>
-                                    Enter your transaction
-                                    details.
-                                </p>
-
-                            </div>
-
-
-                            <button
-                                type="button"
-                                className="close-modal-button"
-                                onClick={closeForm}
-                                disabled={saving}
-                            >
-                                ×
-                            </button>
-
-
+            {/* Transactions Table / Cards */}
+            <div className="wm-card wm-table-card">
+                {loading ? (
+                    <div className="wm-table-loading">
+                        <Loader2 size={24} className="wm-spinner" />
+                        <span>Loading transactions from database...</span>
+                    </div>
+                ) : filteredTransactions.length === 0 ? (
+                    <div className="wm-empty-state-lg">
+                        <div className="wm-empty-icon">
+                            <ReceiptText size={32} />
                         </div>
-
-
-                        {/* =================================================
-                            FORM
-                        ================================================= */}
-
-                        <form
-                            className="transaction-form"
-                            onSubmit={handleSubmit(
-                                onSubmit
-                            )}
-                        >
-
-
-                            {/* =================================================
-                                MERCHANT
-                            ================================================= */}
-
-                            <div className="form-group">
-
-                                <label htmlFor="merchant">
-                                    Merchant
-                                </label>
-
-                                <input
-                                    id="merchant"
-                                    type="text"
-                                    placeholder="Example: Amazon"
-                                    {...register(
-                                        "merchant"
-                                    )}
-                                />
-
-
-                                {errors.merchant && (
-
-                                    <p className="form-error">
-
-                                        {
-                                            errors.merchant.message
-                                        }
-
-                                    </p>
-
-                                )}
-
-                            </div>
-
-
-                            {/* =================================================
-                                CATEGORY
-                            ================================================= */}
-
-                            <div className="form-group">
-
-                                <label htmlFor="category">
-                                    Category
-                                </label>
-
-                                <select
-                                    id="category"
-                                    {...register(
-                                        "category"
-                                    )}
-                                >
-
-                                    <option value="">
-                                        Select category
-                                    </option>
-
-
-                                    {categories.map(
-                                        (item) => (
-
-                                            <option
-                                                key={item}
-                                                value={item}
-                                            >
-                                                {item}
-                                            </option>
-
-                                        )
-                                    )}
-
-                                </select>
-
-
-                                {errors.category && (
-
-                                    <p className="form-error">
-
-                                        {
-                                            errors.category.message
-                                        }
-
-                                    </p>
-
-                                )}
-
-                            </div>
-
-
-                            {/* =================================================
-                                AMOUNT
-                            ================================================= */}
-
-                            <div className="form-group">
-
-                                <label htmlFor="amount">
-                                    Amount
-                                </label>
-
-                                <input
-                                    id="amount"
-                                    type="number"
-                                    placeholder="Example: 1500"
-                                    step="0.01"
-                                    min="0"
-                                    {...register(
-                                        "amount",
-                                        {
-                                            valueAsNumber:
-                                                true,
-                                        }
-                                    )}
-                                />
-
-
-                                {errors.amount && (
-
-                                    <p className="form-error">
-
-                                        {
-                                            errors.amount.message
-                                        }
-
-                                    </p>
-
-                                )}
-
-                            </div>
-
-
-                            {/* =================================================
-                                DATE
-                            ================================================= */}
-
-                            <div className="form-group">
-
-                                <label htmlFor="date">
-                                    Date
-                                </label>
-
-                                <input
-                                    id="date"
-                                    type="date"
-                                    {...register(
-                                        "date"
-                                    )}
-                                />
-
-
-                                {errors.date && (
-
-                                    <p className="form-error">
-
-                                        {
-                                            errors.date.message
-                                        }
-
-                                    </p>
-
-                                )}
-
-                            </div>
-
-
-                            {/* =================================================
-                                TRANSACTION TYPE
-                            ================================================= */}
-
-                            <div className="form-group">
-
-                                <label htmlFor="type">
-                                    Transaction Type
-                                </label>
-
-                                <select
-                                    id="type"
-                                    {...register(
-                                        "type"
-                                    )}
-                                >
-
-                                    <option value="expense">
-                                        Expense
-                                    </option>
-
-                                    <option value="income">
-                                        Income
-                                    </option>
-
-                                </select>
-
-                            </div>
-
-
-                            {/* =================================================
-                                FORM BUTTONS
-                            ================================================= */}
-
-                            <div className="form-actions">
-
-
-                                {/* CANCEL */}
-
+                        <h4>No transactions match your criteria</h4>
+                        <p>
+                            {transactions.length === 0
+                                ? "You have not recorded any transactions yet. Start with ₹0 and upload your bank statement PDF to get started."
+                                : "No records found matching the active search/filters."}
+                        </p>
+                        {transactions.length === 0 && (
+                            <div style={{ display: "flex", gap: "10px", marginTop: "16px" }}>
                                 <button
                                     type="button"
-                                    className="cancel-button"
-                                    onClick={closeForm}
-                                    disabled={saving}
+                                    onClick={() => setShowStatementModal(true)}
+                                    className="wm-btn-primary"
+                                >
+                                    <FileUp size={16} />
+                                    <span>Import PDF Statement</span>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAddModal(true)}
+                                    className="wm-btn-secondary"
+                                >
+                                    <Plus size={16} />
+                                    <span>Add Manually</span>
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="wm-table-container">
+                        <table className="wm-data-table">
+                            <thead>
+                                <tr>
+                                    <th>Date</th>
+                                    <th>Merchant / Source</th>
+                                    <th>Category</th>
+                                    <th>Type</th>
+                                    <th style={{ textAlign: "right" }}>Amount</th>
+                                    <th style={{ textAlign: "center" }}>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredTransactions.map((tx) => {
+                                    const isIncome = tx.type === "income";
+                                    const id = tx._id || tx.id;
+                                    return (
+                                        <tr key={id || `${tx.merchant}-${tx.date}-${tx.amount}`}>
+                                            <td className="wm-td-date">
+                                                {formatDate(tx.date || tx.transactionDate)}
+                                            </td>
+                                            <td className="wm-td-merchant">
+                                                <div className="merchant-name">{tx.merchant}</div>
+                                                {tx.notes && <div className="merchant-notes">{tx.notes}</div>}
+                                            </td>
+                                            <td>
+                                                <span className="wm-category-badge">{tx.category || "General"}</span>
+                                            </td>
+                                            <td>
+                                                <span className={`wm-type-badge ${isIncome ? 'income' : 'expense'}`}>
+                                                    {isIncome ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+                                                    <span>{isIncome ? 'Income' : 'Expense'}</span>
+                                                </span>
+                                            </td>
+                                            <td className={`wm-td-amount ${isIncome ? 'income' : 'expense'}`}>
+                                                {isIncome ? '+' : '-'}₹{Number(tx.amount || 0).toLocaleString("en-IN")}
+                                            </td>
+                                            <td style={{ textAlign: "center" }}>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleDelete(id)}
+                                                    disabled={deletingId === id}
+                                                    className="wm-row-action-btn delete"
+                                                    title="Delete transaction"
+                                                >
+                                                    <Trash2 size={15} />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                )}
+            </div>
+
+            {/* Modal: Manual Transaction Creation */}
+            {showAddModal && (
+                <div className="wm-modal-backdrop" onClick={() => setShowAddModal(false)}>
+                    <div className="wm-modal-card" onClick={(e) => e.stopPropagation()}>
+                        <div className="wm-modal-header">
+                            <div>
+                                <h3>Add Transaction</h3>
+                                <p>Record a verified incoming or outgoing transaction.</p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setShowAddModal(false)}
+                                className="wm-modal-close-btn"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleSubmit(onAddSubmit)} className="wm-modal-form">
+                            {/* Type Toggle */}
+                            <div className="wm-form-group">
+                                <label className="wm-label">Transaction Type</label>
+                                <div className="wm-segmented-control" style={{ width: "100%" }}>
+                                    <button
+                                        type="button"
+                                        className={`wm-seg-btn ${register("type").name === "type" ? "" : ""}`}
+                                        style={{ flex: 1 }}
+                                        onClick={() => reset({ ...register("type"), type: "expense" })}
+                                    >
+                                        Expense
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="wm-seg-btn"
+                                        style={{ flex: 1 }}
+                                        onClick={() => reset({ ...register("type"), type: "income" })}
+                                    >
+                                        Income
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Merchant */}
+                            <div className="wm-form-group">
+                                <label className="wm-label">Merchant / Source</label>
+                                <input
+                                    type="text"
+                                    placeholder="e.g. Swiggy, Tech Corp Salary, Amazon"
+                                    {...register("merchant")}
+                                    className={`wm-input ${errors.merchant ? 'wm-input-error' : ''}`}
+                                />
+                                {errors.merchant && (
+                                    <span className="wm-field-error">{errors.merchant.message}</span>
+                                )}
+                            </div>
+
+                            {/* Amount & Category Grid */}
+                            <div className="wm-form-row">
+                                <div className="wm-form-group">
+                                    <label className="wm-label">Amount (₹)</label>
+                                    <input
+                                        type="number"
+                                        step="0.01"
+                                        placeholder="0.00"
+                                        {...register("amount", { valueAsNumber: true })}
+                                        className={`wm-input ${errors.amount ? 'wm-input-error' : ''}`}
+                                    />
+                                    {errors.amount && (
+                                        <span className="wm-field-error">{errors.amount.message}</span>
+                                    )}
+                                </div>
+
+                                <div className="wm-form-group">
+                                    <label className="wm-label">Category</label>
+                                    <select
+                                        {...register("category")}
+                                        className={`wm-select ${errors.category ? 'wm-input-error' : ''}`}
+                                    >
+                                        {CATEGORIES.map((c) => (
+                                            <option key={c} value={c}>
+                                                {c}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Date */}
+                            <div className="wm-form-group">
+                                <label className="wm-label">Date</label>
+                                <input
+                                    type="date"
+                                    {...register("date")}
+                                    className={`wm-input ${errors.date ? 'wm-input-error' : ''}`}
+                                />
+                                {errors.date && (
+                                    <span className="wm-field-error">{errors.date.message}</span>
+                                )}
+                            </div>
+
+                            {/* Notes */}
+                            <div className="wm-form-group">
+                                <label className="wm-label">Notes (Optional)</label>
+                                <input
+                                    type="text"
+                                    placeholder="Optional description or invoice ref..."
+                                    {...register("notes")}
+                                    className="wm-input"
+                                />
+                            </div>
+
+                            <div className="wm-modal-actions">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowAddModal(false)}
+                                    className="wm-btn-secondary"
                                 >
                                     Cancel
                                 </button>
-
-
-                                {/* SAVE */}
-
                                 <button
                                     type="submit"
-                                    className="save-button"
-                                    disabled={saving}
+                                    disabled={isSubmitting}
+                                    className="wm-btn-primary"
                                 >
-
-                                    {saving
-                                        ? "Saving..."
-                                        : "Save Transaction"}
-
+                                    {isSubmitting ? "Saving..." : "Save Transaction"}
                                 </button>
-
-
                             </div>
-
-
                         </form>
-
-
                     </div>
-
                 </div>
-
             )}
 
-            {/* =================================================
-                BANK STATEMENT MODAL
-            ================================================= */}
-
+            {/* Modal: Bank Statement Import */}
             <BankStatementModal
                 isOpen={showStatementModal}
                 onClose={() => setShowStatementModal(false)}
-                onImportSuccess={(imported) => {
-                    setTransactions((prev) => [...imported, ...prev]);
-                    setSuccessMessage(
-                        `Successfully imported ${imported.length} transactions from your statement.`
-                    );
-                    setTimeout(() => {
-                        setSuccessMessage("");
-                    }, 6000);
+                onImportSuccess={(newTxs) => {
+                    setTransactions((prev) => [...newTxs, ...prev]);
+                    setFeedbackMsg({ text: `Imported ${newTxs.length} transactions successfully.`, type: "success" });
+                    setTimeout(() => setFeedbackMsg(null), 4000);
                 }}
             />
-
         </div>
     );
 }
-
 
 export default Transactions;

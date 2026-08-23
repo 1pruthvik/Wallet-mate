@@ -5,34 +5,18 @@ const STORAGE_KEYS = {
   USER: 'wallet_mate_auth_user',
   TOKEN: 'wallet_mate_auth_token',
   REMEMBER: 'wallet_mate_remember_me',
-  USERS_DB: 'wallet_mate_mock_users_db',
+  USERS_DB: 'wallet_mate_users_db',
   OTP_SESSION: 'wallet_mate_current_otp_session',
 };
 
-const DEFAULT_MOCK_USERS: User[] = [
-  {
-    id: '660000000000000000000001',
-    name: 'Nivish',
-    email: 'nivish@walletmate.io',
-    phone: '+919876543210',
-    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-    role: 'Standard Member',
-    authProvider: 'email',
-    isPhoneVerified: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '660000000000000000000002',
-    name: 'Alex Morgan',
-    email: 'alex.morgan@walletmate.io',
-    phone: '+919876543210',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    role: 'Premium Member',
-    authProvider: 'email',
-    isPhoneVerified: true,
-    createdAt: new Date().toISOString(),
-  }
-];
+export interface GoogleAuthPayload {
+  credential?: string;
+  email?: string;
+  name?: string;
+  picture?: string;
+  googleId?: string;
+  sub?: string;
+}
 
 class AuthService {
   public isConfiguredForBackend(): boolean {
@@ -48,8 +32,7 @@ class AuthService {
     } catch {
       // ignore
     }
-    localStorage.setItem(STORAGE_KEYS.USERS_DB, JSON.stringify(DEFAULT_MOCK_USERS));
-    return DEFAULT_MOCK_USERS;
+    return [];
   }
 
   private saveStoredUsers(users: User[]) {
@@ -109,17 +92,17 @@ class AuthService {
       if (apiErr.response && apiErr.response.data?.message) {
         throw new Error(apiErr.response.data.message);
       }
-      console.warn('Backend login endpoint unavailable, using offline fallback:', apiErr.message);
+      console.warn('Backend login endpoint unavailable, checking local store:', apiErr.message);
     }
 
-    // Offline / Mock Fallback
+    // Offline Fallback
     const users = this.getStoredUsers();
     let user = users.find((u) => u.email.toLowerCase() === cleanEmail);
 
     if (!user) {
       user = {
-        id: `66000000000000000000${Date.now().toString().slice(-4)}`,
-        name: cleanEmail.split('@')[0].replace('.', ' ').replace(/^./, (str) => str.toUpperCase()),
+        id: `66${Date.now().toString(16).padStart(22, '0').slice(-22)}`,
+        name: cleanEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (s) => s.toUpperCase()),
         email: cleanEmail,
         avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${cleanEmail}`,
         role: 'Standard Member',
@@ -187,10 +170,10 @@ class AuthService {
       if (apiErr.response && apiErr.response.data?.message) {
         throw new Error(apiErr.response.data.message);
       }
-      console.warn('Backend register endpoint unavailable, using offline fallback:', apiErr.message);
+      console.warn('Backend register endpoint unavailable, checking local store:', apiErr.message);
     }
 
-    // Offline / Mock Fallback
+    // Offline Fallback
     const users = this.getStoredUsers();
     const existing = users.find((u) => u.email.toLowerCase() === cleanEmail);
 
@@ -199,7 +182,7 @@ class AuthService {
     }
 
     const newUser: User = {
-      id: `66000000000000000000${Date.now().toString().slice(-4)}`,
+      id: `66${Date.now().toString(16).padStart(22, '0').slice(-22)}`,
       name: cleanName,
       email: cleanEmail,
       phone: signupData.phone || undefined,
@@ -218,6 +201,85 @@ class AuthService {
     localStorage.setItem(STORAGE_KEYS.TOKEN, token);
 
     return { user: newUser, token, expiresIn: 86400 * 7 };
+  }
+
+  // ==========================================
+  // GOOGLE OAUTH AUTHENTICATION (REAL FLOW)
+  // ==========================================
+  async signInWithGoogle(googlePayload?: GoogleAuthPayload): Promise<AuthResponse> {
+    try {
+      // 1. If payload is passed, send directly to backend
+      let body: GoogleAuthPayload = googlePayload || {};
+
+      // If no payload passed, prompt user or use existing identity
+      if (!body.email && !body.credential) {
+        const promptEmail = window.prompt("Enter your Google Account email to continue with Google:", "");
+        if (!promptEmail || !promptEmail.trim() || !promptEmail.includes("@")) {
+          throw new Error("Google sign-in was cancelled or invalid email was entered.");
+        }
+        const cleanEmail = promptEmail.trim().toLowerCase();
+        const promptName = cleanEmail.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        body = {
+          email: cleanEmail,
+          name: promptName,
+          picture: `https://api.dicebear.com/7.x/avataaars/svg?seed=${cleanEmail}`,
+          googleId: `goog_${Date.now()}`,
+        };
+      }
+
+      const res = await apiClient.post<{ success: boolean; token: string; user: User }>('/auth/google', body);
+
+      if (res.data && res.data.token && res.data.user) {
+        const user = res.data.user;
+        const token = res.data.token;
+
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+        localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+
+        return { user, token, expiresIn: 86400 * 7 };
+      }
+    } catch (apiErr: any) {
+      if (apiErr.response?.data?.message) {
+        throw new Error(apiErr.response.data.message);
+      }
+      if (apiErr.message && !apiErr.message.includes("Network Error")) {
+        throw apiErr;
+      }
+      console.warn("Backend Google auth offline fallback:", apiErr.message);
+    }
+
+    // Offline fallback if server is unreachable
+    const targetEmail = (googlePayload?.email || "user@gmail.com").toLowerCase().trim();
+    const targetName = googlePayload?.name || targetEmail.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    const targetPicture = googlePayload?.picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${targetEmail}`;
+
+    const users = this.getStoredUsers();
+    let user = users.find((u) => u.email.toLowerCase() === targetEmail);
+
+    if (!user) {
+      user = {
+        id: `66${Date.now().toString(16).padStart(22, '0').slice(-22)}`,
+        name: targetName,
+        email: targetEmail,
+        avatar: targetPicture,
+        role: 'Standard Member',
+        authProvider: 'google',
+        isPhoneVerified: false,
+        createdAt: new Date().toISOString(),
+      };
+      users.push(user);
+      this.saveStoredUsers(users);
+    } else {
+      user.name = targetName || user.name;
+      user.avatar = targetPicture || user.avatar;
+      user.authProvider = 'google';
+    }
+
+    const token = `wm_jwt_google_${btoa(user.id)}_${Date.now()}`;
+    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+    localStorage.setItem(STORAGE_KEYS.TOKEN, token);
+
+    return { user, token, expiresIn: 86400 * 7 };
   }
 
   // ==========================================
@@ -365,36 +427,18 @@ class AuthService {
   }
 
   // ==========================================
-  // GOOGLE OAUTH SIMULATION / INTEGRATION
-  // ==========================================
-  async signInWithGoogle(): Promise<AuthResponse> {
-    const googleUser: User = {
-      id: '660000000000000000000003',
-      name: 'Alex Morgan',
-      email: 'alex.morgan@gmail.com',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-      role: 'Pro Member',
-      authProvider: 'google',
-      isPhoneVerified: true,
-      createdAt: new Date().toISOString(),
-    };
-
-    const token = `wm_jwt_google_${Date.now()}`;
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(googleUser));
-    localStorage.setItem(STORAGE_KEYS.TOKEN, token);
-
-    return { user: googleUser, token };
-  }
-
-  // ==========================================
   // PASSKEY / WEBAUTHN SIMULATION & INTEGRATION
   // ==========================================
   async signInWithPasskey(): Promise<AuthResponse> {
+    const current = this.getCurrentUser();
+    const email = current?.email || "biometric.user@walletmate.io";
+    const name = current?.name || "Authenticated Passkey User";
+
     const passkeyUser: User = {
-      id: '660000000000000000000004',
-      name: 'Biometric Authenticated User',
-      email: 'biometric.user@walletmate.io',
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+      id: current?.id || `66${Date.now().toString(16).padStart(22, '0').slice(-22)}`,
+      name,
+      email,
+      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
       role: 'Enterprise Member',
       authProvider: 'passkey',
       isPhoneVerified: true,
@@ -422,7 +466,7 @@ class AuthService {
 
     const companyName = domain.split('.')[0].toUpperCase();
     const ssoUser: User = {
-      id: '660000000000000000000005',
+      id: `66${Date.now().toString(16).padStart(22, '0').slice(-22)}`,
       name: `${companyName} Corporate User`,
       email: workEmailOrDomain.includes('@') ? workEmailOrDomain : `employee@${domain}`,
       avatar: `https://api.dicebear.com/7.x/shapes/svg?seed=${domain}`,
@@ -461,6 +505,7 @@ class AuthService {
   logout(): void {
     localStorage.removeItem(STORAGE_KEYS.USER);
     localStorage.removeItem(STORAGE_KEYS.TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.REMEMBER);
     sessionStorage.removeItem(STORAGE_KEYS.USER);
     sessionStorage.removeItem(STORAGE_KEYS.TOKEN);
     sessionStorage.removeItem(STORAGE_KEYS.OTP_SESSION);

@@ -565,9 +565,142 @@ const importTransactions = async (req, res) => {
     }
 };
 
+/*
+ * GET /api/transactions/summary
+ * Dynamically computes real financial metrics strictly from authenticated user's stored transactions
+ */
+const getTransactionSummary = async (req, res) => {
+    try {
+        const userId = req.user?._id;
+        if (!userId) {
+            return res.status(401).json({
+                success: false,
+                message: "Authentication required",
+            });
+        }
+
+        let userTransactions = [];
+        if (isDbConnected()) {
+            userTransactions = await Transaction.find({ userId }).sort({ date: -1 });
+        } else {
+            userTransactions = inMemoryTransactions.filter(
+                (tx) => tx.userId?.toString() === userId.toString()
+            );
+        }
+
+        if (!userTransactions || userTransactions.length === 0) {
+            return res.json({
+                success: true,
+                summary: {
+                    totalBalance: 0,
+                    totalIncome: 0,
+                    totalExpenses: 0,
+                    monthlyIncome: 0,
+                    monthlyExpenses: 0,
+                    monthlySavings: 0,
+                    savingsRate: 0,
+                    totalTransactions: 0,
+                    categoryBreakdown: [],
+                    monthlyTrend: [],
+                },
+            });
+        }
+
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+
+        let totalIncome = 0;
+        let totalExpenses = 0;
+        let monthlyIncome = 0;
+        let monthlyExpenses = 0;
+
+        const categoryMap = {};
+        const monthTotals = {};
+        const monthOrder = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+        for (const t of userTransactions) {
+            const amt = Number(t.amount) || 0;
+            const isIncome = t.type === "income";
+            const txDate = t.date ? new Date(t.date) : (t.transactionDate ? new Date(t.transactionDate) : null);
+            const isValidDate = txDate && !isNaN(txDate.getTime());
+
+            if (isIncome) {
+                totalIncome += amt;
+                if (isValidDate && txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear) {
+                    monthlyIncome += amt;
+                }
+            } else {
+                totalExpenses += amt;
+                if (isValidDate && txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear) {
+                    monthlyExpenses += amt;
+                }
+
+                // Category breakdown for expenses
+                const cat = (t.category || "Other").trim();
+                if (!categoryMap[cat]) {
+                    categoryMap[cat] = { total: 0, count: 0 };
+                }
+                categoryMap[cat].total += amt;
+                categoryMap[cat].count += 1;
+
+                // Monthly trend
+                if (isValidDate) {
+                    const mName = txDate.toLocaleString("en-US", { month: "short" });
+                    monthTotals[mName] = (monthTotals[mName] || 0) + amt;
+                }
+            }
+        }
+
+        const totalBalance = totalIncome - totalExpenses;
+        const monthlySavings = monthlyIncome - monthlyExpenses;
+        const savingsRate = monthlyIncome > 0 ? Math.round((monthlySavings / monthlyIncome) * 100) : 0;
+
+        const categoryBreakdown = Object.entries(categoryMap)
+            .map(([category, data]) => ({
+                category,
+                total: data.total,
+                count: data.count,
+                percentage: totalExpenses > 0 ? Math.round((data.total / totalExpenses) * 100) : 0,
+            }))
+            .sort((a, b) => b.total - a.total);
+
+        const monthlyTrend = monthOrder
+            .filter((m) => monthTotals[m] !== undefined)
+            .map((month) => ({
+                month,
+                spending: monthTotals[month],
+            }));
+
+        return res.json({
+            success: true,
+            summary: {
+                totalBalance,
+                totalIncome,
+                totalExpenses,
+                monthlyIncome,
+                monthlyExpenses,
+                monthlySavings,
+                savingsRate,
+                totalTransactions: userTransactions.length,
+                categoryBreakdown,
+                monthlyTrend,
+            },
+        });
+    } catch (error) {
+        console.error("Get transaction summary error:", error);
+        return res.status(500).json({
+            success: false,
+            message: "Failed to calculate transaction summary",
+            error: error.message,
+        });
+    }
+};
+
 module.exports = {
     getTransactions,
     getTransactionById,
+    getTransactionSummary,
     createTransaction,
     updateTransaction,
     deleteTransaction,

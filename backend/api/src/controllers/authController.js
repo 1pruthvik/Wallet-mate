@@ -243,9 +243,9 @@ const login = async (req, res) => {
                 _id: new mongoose.Types.ObjectId(),
                 fullName: targetEmail.split("@")[0].replace(".", " ").replace(/^./, (s) => s.toUpperCase()),
                 email: targetEmail,
-                phoneNumber: "+919876543210",
+                phoneNumber: undefined,
                 authProvider: "email",
-                isPhoneVerified: true,
+                isPhoneVerified: false,
                 profile: {
                     avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${targetEmail}`,
                     role: "Standard Member",
@@ -499,6 +499,173 @@ const getMe = async (req, res) => {
 };
 
 /*
+ * POST /api/auth/google
+ * Authenticates user via Google OAuth / Google Identity Services
+ */
+const googleAuth = async (req, res) => {
+    try {
+        const { credential, email, name, picture, googleId, sub } = req.body;
+
+        let targetEmail = (email || "").trim().toLowerCase();
+        let targetName = (name || "").trim();
+        let targetPicture = picture || "";
+        let targetGoogleId = googleId || sub || "";
+
+        // If JWT credential from Google Identity Services is passed, decode it
+        if (credential && typeof credential === "string") {
+            try {
+                // Decode base64 URL payload (2nd part of JWT)
+                const parts = credential.split(".");
+                if (parts.length === 3) {
+                    const payloadRaw = Buffer.from(parts[1], "base64").toString("utf8");
+                    const payload = JSON.parse(payloadRaw);
+
+                    if (payload.email) targetEmail = payload.email.trim().toLowerCase();
+                    if (payload.name) targetName = payload.name.trim();
+                    if (payload.picture) targetPicture = payload.picture;
+                    if (payload.sub) targetGoogleId = payload.sub;
+                }
+            } catch (err) {
+                console.warn("Failed to parse Google credential token payload:", err.message);
+            }
+        }
+
+        if (!targetEmail || !targetEmail.includes("@")) {
+            return res.status(400).json({
+                success: false,
+                message: "Unable to retrieve a valid email address from Google authentication.",
+            });
+        }
+
+        if (!targetName) {
+            targetName = targetEmail.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+        }
+
+        if (!targetPicture) {
+            targetPicture = `https://api.dicebear.com/7.x/avataaars/svg?seed=${targetEmail}`;
+        }
+
+        if (isDbConnected()) {
+            // Find existing user by googleId or email
+            let user = await User.findOne({
+                $or: [
+                    { googleId: targetGoogleId && targetGoogleId.length > 0 ? targetGoogleId : "NO_MATCH" },
+                    { email: targetEmail },
+                ],
+            });
+
+            if (user) {
+                // Update existing user with Google details
+                if (targetGoogleId && !user.googleId) {
+                    user.googleId = targetGoogleId;
+                }
+                user.authProvider = user.authProvider === "email" ? "email" : "google";
+                user.isEmailVerified = true;
+                if (targetPicture && (!user.profile?.avatar || user.profile.avatar.includes("dicebear"))) {
+                    if (!user.profile) user.profile = {};
+                    user.profile.avatar = targetPicture;
+                }
+                user.lastLoginAt = new Date();
+                await user.save();
+            } else {
+                // Create brand new Google-authenticated user
+                user = await User.create({
+                    fullName: targetName,
+                    email: targetEmail,
+                    googleId: targetGoogleId || undefined,
+                    authProvider: "google",
+                    isEmailVerified: true,
+                    isPhoneVerified: false,
+                    profile: {
+                        avatar: targetPicture,
+                        currency: "INR",
+                        role: "Standard Member",
+                    },
+                    lastLoginAt: new Date(),
+                });
+            }
+
+            const token = generateToken(user);
+            const userObj = user.toObject();
+            delete userObj.passwordHash;
+
+            return res.json({
+                success: true,
+                message: "Google sign-in successful.",
+                token,
+                user: {
+                    id: userObj._id.toString(),
+                    name: userObj.fullName,
+                    email: userObj.email,
+                    phone: userObj.phoneNumber || "",
+                    avatar: userObj.profile?.avatar || targetPicture,
+                    role: userObj.profile?.role || "Standard Member",
+                    authProvider: userObj.authProvider || "google",
+                    isPhoneVerified: Boolean(userObj.isPhoneVerified),
+                    createdAt: userObj.createdAt,
+                },
+            });
+        }
+
+        // Fallback in-memory
+        let user = inMemoryUsers.find(
+            (u) => (targetGoogleId && u.googleId === targetGoogleId) || u.email === targetEmail
+        );
+
+        if (user) {
+            user.googleId = targetGoogleId || user.googleId;
+            user.fullName = targetName || user.fullName;
+            user.profile = {
+                ...user.profile,
+                avatar: targetPicture || user.profile?.avatar,
+            };
+            user.lastLoginAt = new Date();
+        } else {
+            user = {
+                _id: new mongoose.Types.ObjectId(),
+                fullName: targetName,
+                email: targetEmail,
+                googleId: targetGoogleId,
+                authProvider: "google",
+                isEmailVerified: true,
+                isPhoneVerified: false,
+                profile: {
+                    avatar: targetPicture,
+                    currency: "INR",
+                    role: "Standard Member",
+                },
+                createdAt: new Date(),
+            };
+            inMemoryUsers.push(user);
+        }
+
+        const token = generateToken(user);
+        return res.json({
+            success: true,
+            message: "Google sign-in successful.",
+            token,
+            user: {
+                id: user._id.toString(),
+                name: user.fullName,
+                email: user.email,
+                phone: user.phoneNumber || "",
+                avatar: user.profile?.avatar || targetPicture,
+                role: user.profile?.role || "Standard Member",
+                authProvider: user.authProvider || "google",
+                isPhoneVerified: Boolean(user.isPhoneVerified),
+                createdAt: user.createdAt,
+            },
+        });
+    } catch (error) {
+        console.error("Google auth error:", error);
+        return res.status(500).json({
+            success: false,
+            message: error.message || "Failed to complete Google authentication. Please try again.",
+        });
+    }
+};
+
+/*
  * POST /api/auth/reset-password
  */
 const resetPassword = async (req, res) => {
@@ -544,8 +711,11 @@ const resetPassword = async (req, res) => {
 module.exports = {
     register,
     login,
+    googleAuth,
     sendOtp,
     verifyOtp,
     getMe,
     resetPassword,
 };
+
+

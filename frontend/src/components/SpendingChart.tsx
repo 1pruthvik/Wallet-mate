@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { getTransactions } from "../api/transactions";
+import React, { useMemo, useState } from "react";
 import type { Transaction } from "../api/transactions";
+import { PieChart, Store, BarChart3 } from "lucide-react";
 
 interface SpendingChartProps {
     transactions?: Transaction[];
@@ -10,49 +10,22 @@ type TabType = "category" | "monthly" | "merchants";
 
 const CATEGORY_COLORS: Record<string, string> = {
     Food: "#f59e0b",
+    Dining: "#f59e0b",
     Shopping: "#8b5cf6",
-    Transport: "#3b82f6",
+    Transport: "#06b6d4",
+    Fuel: "#06b6d4",
     Bills: "#ec4899",
-    Entertainment: "#10b981",
-    Income: "#16845b",
-    Other: "#6b7280",
+    Utilities: "#ec4899",
+    Entertainment: "#635bff",
+    Health: "#10b981",
+    Investment: "#14b8a6",
+    Other: "#64748b",
 };
 
 const SpendingChart: React.FC<SpendingChartProps> = ({
-    transactions: propTransactions,
+    transactions = [],
 }) => {
-    const isControlled = Boolean(propTransactions);
-    const [fetchedTransactions, setFetchedTransactions] = useState<Transaction[]>([]);
-    const [fetchLoading, setFetchLoading] = useState<boolean>(!isControlled);
-    const [error, setError] = useState<string>("");
     const [activeTab, setActiveTab] = useState<TabType>("category");
-
-    useEffect(() => {
-        if (isControlled) return;
-
-        const load = async () => {
-            try {
-                setFetchLoading(true);
-                setError("");
-                const data = await getTransactions();
-                setFetchedTransactions(data);
-            } catch (err) {
-                console.error("Failed to load spending data:", err);
-                setError("Unable to load spending data.");
-            } finally {
-                setFetchLoading(false);
-            }
-        };
-
-        load();
-    }, [isControlled]);
-
-    const transactions = propTransactions ?? fetchedTransactions;
-    const loading = isControlled ? false : fetchLoading;
-
-    /* =========================================================
-       CALCULATIONS
-    ========================================================= */
 
     const expenseTransactions = useMemo(() => {
         return transactions.filter((t) => t.type === "expense");
@@ -81,7 +54,7 @@ const SpendingChart: React.FC<SpendingChartProps> = ({
                 total: data.total,
                 count: data.count,
                 percentage: totalOutflow > 0 ? Math.round((data.total / totalOutflow) * 100) : 0,
-                color: CATEGORY_COLORS[category] || "#6b7280",
+                color: CATEGORY_COLORS[category] || "#635bff",
             }))
             .sort((a, b) => b.total - a.total);
     }, [expenseTransactions, totalOutflow]);
@@ -92,7 +65,7 @@ const SpendingChart: React.FC<SpendingChartProps> = ({
         const monthOrder = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
         expenseTransactions.forEach((t) => {
-            const d = new Date(t.date);
+            const d = new Date(t.date || t.transactionDate || 0);
             if (Number.isNaN(d.getTime())) return;
             const m = d.toLocaleString("en-US", { month: "short" });
             monthTotals[m] = (monthTotals[m] || 0) + Number(t.amount || 0);
@@ -136,134 +109,115 @@ const SpendingChart: React.FC<SpendingChartProps> = ({
         return Math.max(...monthlySpending.map((m) => m.spending));
     }, [monthlySpending]);
 
-    if (loading) {
-        return (
-            <div className="spending-chart-card">
-                <div className="spending-card-header">
-                    <div>
-                        <h2>Spending Analytics</h2>
-                        <p>Loading your financial outflows...</p>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
-    if (error) {
-        return (
-            <div className="spending-chart-card">
-                <div className="spending-card-header">
-                    <div>
-                        <h2>Spending Analytics</h2>
-                        <p className="error-text">{error}</p>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-
     if (expenseTransactions.length === 0) {
         return (
-            <div className="spending-chart-card">
-                <div className="spending-card-header">
+            <div className="wm-card wm-analytics-card">
+                <div className="wm-card-header">
                     <div>
-                        <h2>Spending Analytics</h2>
-                        <p>Where your money goes across categories and months</p>
+                        <h3 className="wm-card-title">Spending Analytics</h3>
+                        <p className="wm-card-subtitle">Where your money goes across categories and months</p>
                     </div>
                 </div>
-                <div className="spending-empty-state">
-                    <p>No expense transactions recorded yet.</p>
-                    <span>Add expenses or import a bank statement to view visual analytics.</span>
+                <div className="wm-empty-state-lg">
+                    <div className="wm-empty-icon">
+                        <PieChart size={32} />
+                    </div>
+                    <h4>No expense data recorded</h4>
+                    <p>When you import bank statements or log expenses, category breakdowns and trends will appear here.</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="spending-chart-card">
+        <div className="wm-card wm-analytics-card">
             {/* HEADER & VIEW TABS */}
-            <div className="spending-card-header">
+            <div className="wm-card-header wm-analytics-header">
                 <div>
-                    <h2>Spending Analytics</h2>
-                    <p>Total Outflow: <strong>₹{totalOutflow.toLocaleString("en-IN")}</strong> across {expenseTransactions.length} transactions</p>
+                    <h3 className="wm-card-title">Spending Analytics</h3>
+                    <p className="wm-card-subtitle">
+                        Total Outflow: <strong>₹{totalOutflow.toLocaleString("en-IN")}</strong> across {expenseTransactions.length} items
+                    </p>
                 </div>
 
-                <div className="spending-tab-switcher">
+                <div className="wm-tab-pills">
                     <button
                         type="button"
-                        className={`tab-btn ${activeTab === "category" ? "tab-btn-active" : ""}`}
+                        className={`wm-tab-pill ${activeTab === "category" ? "active" : ""}`}
                         onClick={() => setActiveTab("category")}
                     >
-                        Category Breakdown
+                        <PieChart size={14} />
+                        <span>Categories</span>
                     </button>
                     <button
                         type="button"
-                        className={`tab-btn ${activeTab === "monthly" ? "tab-btn-active" : ""}`}
+                        className={`wm-tab-pill ${activeTab === "monthly" ? "active" : ""}`}
                         onClick={() => setActiveTab("monthly")}
                     >
-                        Monthly Trends
+                        <BarChart3 size={14} />
+                        <span>Monthly</span>
                     </button>
                     <button
                         type="button"
-                        className={`tab-btn ${activeTab === "merchants" ? "tab-btn-active" : ""}`}
+                        className={`wm-tab-pill ${activeTab === "merchants" ? "active" : ""}`}
                         onClick={() => setActiveTab("merchants")}
                     >
-                        Top Merchants
+                        <Store size={14} />
+                        <span>Merchants</span>
                     </button>
                 </div>
             </div>
 
             {/* TAB 1: CATEGORY BREAKDOWN */}
             {activeTab === "category" && (
-                <div className="category-breakdown-view">
-                    <div className="category-list">
-                        {categoryBreakdown.map((item) => (
-                            <div key={item.category} className="category-item-row">
-                                <div className="category-info-col">
-                                    <div className="category-badge-group">
-                                        <span className="category-color-dot" style={{ backgroundColor: item.color }} />
-                                        <span className="category-name-text">{item.category}</span>
-                                        <span className="category-count-tag">{item.count} items</span>
-                                    </div>
-                                    <div className="category-amount-group">
-                                        <span className="category-amount-text">₹{item.total.toLocaleString("en-IN")}</span>
-                                        <span className="category-pct-text">{item.percentage}%</span>
-                                    </div>
+                <div className="wm-category-grid">
+                    {categoryBreakdown.map((item) => (
+                        <div key={item.category} className="wm-cat-card">
+                            <div className="wm-cat-header">
+                                <div className="wm-cat-badge">
+                                    <span className="wm-cat-dot" style={{ backgroundColor: item.color }} />
+                                    <span className="wm-cat-name">{item.category}</span>
                                 </div>
-
-                                <div className="category-progress-track">
-                                    <div
-                                        className="category-progress-fill"
-                                        style={{
-                                            width: `${item.percentage}%`,
-                                            backgroundColor: item.color,
-                                        }}
-                                    />
-                                </div>
+                                <span className="wm-cat-pct">{item.percentage}%</span>
                             </div>
-                        ))}
-                    </div>
+
+                            <div className="wm-cat-bar-track">
+                                <div
+                                    className="wm-cat-bar-fill"
+                                    style={{
+                                        width: `${item.percentage}%`,
+                                        backgroundColor: item.color,
+                                    }}
+                                />
+                            </div>
+
+                            <div className="wm-cat-footer">
+                                <span className="wm-cat-amount">₹{item.total.toLocaleString("en-IN")}</span>
+                                <span className="wm-cat-count">{item.count} txns</span>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             )}
 
             {/* TAB 2: MONTHLY TRENDS */}
             {activeTab === "monthly" && (
-                <div className="monthly-trends-view">
-                    <div className="monthly-chart-container">
+                <div className="wm-monthly-trend-view">
+                    <div className="wm-monthly-bars">
                         {monthlySpending.map((item) => {
-                            const barHeight = maxMonthly > 0 ? Math.max(24, Math.round((item.spending / maxMonthly) * 180)) : 24;
+                            const barHeight = maxMonthly > 0 ? Math.max(28, Math.round((item.spending / maxMonthly) * 160)) : 28;
                             const isHighest = item.spending === maxMonthly && monthlySpending.length > 1;
 
                             return (
-                                <div key={item.month} className="monthly-bar-col">
-                                    <span className="bar-val-label">₹{item.spending.toLocaleString("en-IN")}</span>
+                                <div key={item.month} className="wm-trend-bar-group">
+                                    <span className="wm-trend-val">₹{item.spending.toLocaleString("en-IN")}</span>
                                     <div
-                                        className={`monthly-bar-pill ${isHighest ? "bar-peak" : ""}`}
+                                        className={`wm-trend-bar ${isHighest ? "highest" : ""}`}
                                         style={{ height: `${barHeight}px` }}
                                         title={`${item.month}: ₹${item.spending.toLocaleString("en-IN")}`}
                                     />
-                                    <span className="bar-month-label">{item.month}</span>
-                                    {isHighest && <span className="peak-badge">Peak</span>}
+                                    <span className="wm-trend-label">{item.month}</span>
+                                    {isHighest && <span className="wm-peak-tag">Peak</span>}
                                 </div>
                             );
                         })}
@@ -273,17 +227,17 @@ const SpendingChart: React.FC<SpendingChartProps> = ({
 
             {/* TAB 3: TOP MERCHANTS */}
             {activeTab === "merchants" && (
-                <div className="merchants-grid-view">
+                <div className="wm-merchants-grid">
                     {topMerchants.map((m, idx) => (
-                        <div key={m.merchant} className="merchant-spend-card">
-                            <div className="merchant-rank-badge">#{idx + 1}</div>
-                            <div className="merchant-details-body">
-                                <h4>{m.merchant}</h4>
-                                <span className="merchant-cat-pill">{m.category}</span>
+                        <div key={m.merchant} className="wm-merchant-card">
+                            <div className="wm-merchant-rank">#{idx + 1}</div>
+                            <div className="wm-merchant-body">
+                                <h4 className="wm-merchant-name">{m.merchant}</h4>
+                                <span className="wm-merchant-cat">{m.category}</span>
                             </div>
-                            <div className="merchant-stats-col">
-                                <span className="merchant-total-val">₹{m.total.toLocaleString("en-IN")}</span>
-                                <span className="merchant-avg-desc">{m.count} orders • avg ₹{m.average}</span>
+                            <div className="wm-merchant-stats">
+                                <span className="wm-merchant-total">₹{m.total.toLocaleString("en-IN")}</span>
+                                <span className="wm-merchant-avg">{m.count} txns • avg ₹{m.average}</span>
                             </div>
                         </div>
                     ))}
