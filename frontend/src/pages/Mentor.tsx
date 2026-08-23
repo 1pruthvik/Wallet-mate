@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { getTransactions } from "../api/transactions";
 import type { Transaction } from "../api/transactions";
 import { calculateFinancialHealth } from "../utils/financialHealth";
+import { queryAIMentor } from "../api/ai";
 
 interface ChatMessage {
     id: string;
@@ -173,7 +174,7 @@ const Mentor: React.FC = () => {
         };
     }, [transactions]);
 
-    const handleSendMessage = (textToSend?: string) => {
+    const handleSendMessage = async (textToSend?: string) => {
         const query = (textToSend || inputQuery).trim();
         if (!query || isTyping) return;
 
@@ -189,14 +190,39 @@ const Mentor: React.FC = () => {
         setInputQuery("");
         setIsTyping(true);
 
-        // Natural typing delay
-        setTimeout(() => {
-            const botResponseId = `mentor-msg-${++messageSequence}`;
-            const botTimestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-            const botResponse = generateMentorResponse(query, botResponseId, botTimestamp);
-            setMessages((prev) => [...prev, botResponse]);
-            setIsTyping(false);
-        }, 750);
+        const botResponseId = `mentor-msg-${++messageSequence}`;
+        const botTimestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+
+        try {
+            const report = calculateFinancialHealth(transactions);
+            const aiRes = await queryAIMentor(query, {
+                healthScore: report.score,
+                monthlyIncome: report.monthlyIncome,
+                monthlyExpenses: report.monthlyExpenses,
+                savingsRate: report.savingsRate,
+            });
+
+            if (aiRes && aiRes.answer) {
+                setMessages((prev) => [
+                    ...prev,
+                    {
+                        id: botResponseId,
+                        sender: "mentor",
+                        text: aiRes.answer,
+                        timestamp: botTimestamp,
+                    },
+                ]);
+                setIsTyping(false);
+                return;
+            }
+        } catch {
+            // Graceful fallback to client-side financial rules engine
+        }
+
+        // Local financial rules engine
+        const botResponse = generateMentorResponse(query, botResponseId, botTimestamp);
+        setMessages((prev) => [...prev, botResponse]);
+        setIsTyping(false);
     };
 
     return (

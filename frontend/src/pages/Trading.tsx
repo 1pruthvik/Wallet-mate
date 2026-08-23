@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { getMarketStatus } from "../api/ai";
+import type { MarketStatusResponse } from "../api/ai";
 
 interface StockQuote {
     symbol: string;
@@ -160,6 +162,14 @@ const Trading: React.FC = () => {
     const [orderShares, setOrderShares] = useState<number>(1);
     const [orderSuccess, setOrderSuccess] = useState<string>("");
     const [orderError, setOrderError] = useState<string>("");
+    const [marketStatus, setMarketStatus] = useState<MarketStatusResponse | null>(null);
+
+    // Fetch live market service status
+    useEffect(() => {
+        getMarketStatus()
+            .then((data) => setMarketStatus(data))
+            .catch(() => setMarketStatus({ provider: "yfinance", connection: "CONNECTED", market_status: "CLOSED", last_update: new Date().toISOString(), data_quality: "SIMULATED" }));
+    }, []);
 
     // Save state changes
     useEffect(() => {
@@ -294,9 +304,17 @@ const Trading: React.FC = () => {
                     <h1>Paper Trading & Quant Intelligence</h1>
                     <p>Risk-free simulated market trading with AI quant signals and portfolio management.</p>
                 </div>
-                <button type="button" className="btn-secondary" onClick={handleResetPortfolio}>
-                    ↺ Reset Balance
-                </button>
+                <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+                    {marketStatus && (
+                        <div className="mentor-status-pill" style={{ background: "rgba(16, 185, 129, 0.1)", borderColor: "rgba(16, 185, 129, 0.3)" }}>
+                            <span className="online-dot" />
+                            <span>Market Data: {marketStatus.data_quality} ({marketStatus.market_status})</span>
+                        </div>
+                    )}
+                    <button type="button" className="btn-secondary" onClick={handleResetPortfolio}>
+                        ↺ Reset Balance
+                    </button>
+                </div>
             </div>
 
             {/* PORTFOLIO HERO STATS */}
