@@ -1,5 +1,8 @@
+const mongoose = require("mongoose");
+const crypto = require("crypto");
 const Transaction = require("../models/Transaction");
-const { parseStatementBuffer } = require("../services/statementParser");
+
+const isDbConnected = () => mongoose.connection && mongoose.connection.readyState === 1;
 
 const initialMockTransactions = [
     { _id: "txn1", merchant: "Swiggy", amount: 799, type: "expense", category: "Food & Dining", date: new Date("2026-08-22"), description: "UPI payment to Swiggy" },
@@ -11,20 +14,32 @@ const initialMockTransactions = [
 
 let memoryTransactions = [...initialMockTransactions];
 
+const computeTransactionHash = (userId, dateStr, merchant, amount, type, referenceNumber, description) => {
+    const dStr = dateStr ? new Date(dateStr).toISOString().split("T")[0] : "";
+    const raw = `${userId || "guest"}_${dStr}_${merchant}_${Number(amount)}_${type}_${referenceNumber || description || ""}`;
+    return crypto.createHash("sha256").update(raw).digest("hex");
+};
+
 /*
- * Get all transactions
+ * GET /api/transactions
  */
 const getTransactions = async (req, res) => {
     try {
-        if (require("mongoose").connection.readyState === 1) {
-            const transactions = await Transaction.find().sort({ date: -1 });
+        const userId = req.user?.userId || req.user?.id;
+
+        if (isDbConnected()) {
+            const query = userId ? { userId } : {};
+            const transactions = await Transaction.find(query).sort({ date: -1 });
             return res.json({
                 success: true,
+                count: transactions.length,
                 transactions,
             });
         }
+
         res.json({
             success: true,
+            count: memoryTransactions.length,
             transactions: memoryTransactions,
         });
     } catch (error) {
@@ -37,12 +52,40 @@ const getTransactions = async (req, res) => {
 };
 
 /*
- * Create a single transaction
+ * GET /api/transactions/:id
+ */
+const getTransactionById = async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (isDbConnected()) {
+            const transaction = await Transaction.findById(id);
+            if (!transaction) {
+                return res.status(404).json({ success: false, message: "Transaction not found" });
+            }
+            return res.json({ success: true, transaction });
+        }
+
+        const txn = memoryTransactions.find((t) => t._id === id);
+        if (!txn) {
+            return res.status(404).json({ success: false, message: "Transaction not found" });
+        }
+        return res.json({ success: true, transaction: txn });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+/*
+ * POST /api/transactions
  */
 const createTransaction = async (req, res) => {
     try {
-        if (require("mongoose").connection.readyState === 1) {
-            const transaction = await Transaction.create(req.body);
+        const userId = req.user?.userId || req.user?.id;
+        const bodyData = { ...req.body };
+        if (userId) bodyData.userId = userId;
+
+        if (isDbConnected()) {
+            const transaction = await Transaction.create(bodyData);
             return res.status(201).json({
                 success: true,
                 transaction,
@@ -56,6 +99,7 @@ const createTransaction = async (req, res) => {
             category: req.body.category || "Other",
             date: req.body.date ? new Date(req.body.date) : new Date(),
             description: req.body.description || "",
+            userId,
         };
         memoryTransactions.unshift(newTxn);
         res.status(201).json({
@@ -67,60 +111,63 @@ const createTransaction = async (req, res) => {
         res.status(400).json({
             success: false,
             message: "Failed to create transaction",
-            error: error.message,
         });
     }
 };
 
 /*
- * Parse bank statement PDF/file and return extracted transactions for preview
+ * PUT /api/transactions/:id
  */
-const parseStatement = async (req, res) => {
+const updateTransaction = async (req, res) => {
     try {
-        if (!req.file) {
-            return res.status(400).json({
-                success: false,
-                message: "No statement file uploaded. Please upload a PDF bank statement.",
-            });
+        const { id } = req.params;
+        if (isDbConnected()) {
+            const transaction = await Transaction.findByIdAndUpdate(id, req.body, { new: true });
+            return res.json({ success: true, transaction });
         }
-
-        const buffer = req.file.buffer;
-        const mimetype = req.file.mimetype;
-        const originalname = req.file.originalname;
-
-        const transactions = await parseStatementBuffer(buffer, mimetype, originalname);
-
-        res.json({
-            success: true,
-            count: transactions.length,
-            fileName: originalname,
-            transactions,
-        });
+        const idx = memoryTransactions.findIndex((t) => t._id === id);
+        if (idx !== -1) {
+            memoryTransactions[idx] = { ...memoryTransactions[idx], ...req.body };
+            return res.json({ success: true, transaction: memoryTransactions[idx] });
+        }
+        return res.status(404).json({ success: false, message: "Transaction not found" });
     } catch (error) {
-        console.error("Statement parsing error:", error);
-
-        res.status(422).json({
-            success: false,
-            message: error.message || "Failed to process the bank statement.",
-        });
+        return res.status(500).json({ success: false, message: error.message });
     }
 };
 
 /*
- * Batch import verified transactions into MongoDB
+ * DELETE /api/transactions/:id
+ */
+const deleteTransaction = async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (isDbConnected()) {
+            await Transaction.findByIdAndDelete(id);
+            return res.json({ success: true, message: "Transaction deleted successfully" });
+        }
+        memoryTransactions = memoryTransactions.filter((t) => t._id !== id);
+        return res.json({ success: true, message: "Transaction deleted successfully" });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
+    }
+};
+
+/*
+ * POST /api/transactions/import
  */
 const importTransactions = async (req, res) => {
     try {
+        const userId = req.user?.userId || req.user?.id;
         const { transactions } = req.body;
 
         if (!Array.isArray(transactions) || transactions.length === 0) {
             return res.status(400).json({
                 success: false,
-                message: "No transactions provided for import.",
+                message: "No transactions provided for import",
             });
         }
 
-        // Validate and clean each transaction before insertion
         const formatted = transactions.map((t) => ({
             merchant: t.merchant || "Unknown Merchant",
             amount: Number(t.amount) || 0,
@@ -128,9 +175,10 @@ const importTransactions = async (req, res) => {
             category: t.category || "Other",
             date: t.date ? new Date(t.date) : new Date(),
             description: t.description || "",
+            userId,
         }));
 
-        if (require("mongoose").connection.readyState === 1) {
+        if (isDbConnected()) {
             const imported = await Transaction.insertMany(formatted);
             return res.status(201).json({
                 success: true,
@@ -154,18 +202,18 @@ const importTransactions = async (req, res) => {
         });
     } catch (error) {
         console.error("Import transactions error:", error);
-
         res.status(500).json({
             success: false,
-            message: "Failed to import transactions to database.",
-            error: error.message,
+            message: "Failed to import transactions",
         });
     }
 };
 
 module.exports = {
     getTransactions,
+    getTransactionById,
     createTransaction,
-    parseStatement,
+    updateTransaction,
+    deleteTransaction,
     importTransactions,
 };

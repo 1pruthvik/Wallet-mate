@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-
 import StatCard from "../components/StatCard";
 import SpendingChart from "../components/SpendingChart";
 import RecentTransactions from "../components/RecentTransactions";
 import FinancialHealthCard from "../components/FinancialHealthCard";
+import BankStatementModal from "../components/BankStatementModal";
+import { FileUp } from "lucide-react";
 
 import {
     getTransactions,
@@ -14,9 +15,15 @@ import type {
 } from "../api/transactions";
 
 import { calculateFinancialHealth } from "../utils/financialHealth";
-
+import { useAuthStore } from "../store/useAuthStore";
 
 function Dashboard() {
+    const { user } = useAuthStore();
+    const displayName = user?.name ? user.name.split(" ")[0] : "Nivish";
+
+    const hour = new Date().getHours();
+    const greeting =
+        hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
     /* =========================
        STATE
@@ -27,6 +34,9 @@ function Dashboard() {
 
     const [loading, setLoading] =
         useState(true);
+
+    const [showStatementModal, setShowStatementModal] =
+        useState(false);
 
     const [error, setError] =
         useState("");
@@ -245,9 +255,8 @@ function Dashboard() {
                     <div>
 
                         <h1>
-                            Good afternoon, Nivish 👋
+                            Hi,
                         </h1>
-
                         <p>
                             Loading your financial overview...
                         </p>
@@ -274,12 +283,12 @@ function Dashboard() {
                 HEADER
             ========================= */}
 
-            <div className="dashboard-header">
+            <div className="dashboard-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
 
                 <div>
 
                     <h1>
-                        Good afternoon, Nivish 👋
+                        {greeting}, {displayName} 👋
                     </h1>
 
                     <p>
@@ -287,6 +296,31 @@ function Dashboard() {
                     </p>
 
                 </div>
+
+                <button
+                    type="button"
+                    onClick={() => setShowStatementModal(true)}
+                    style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        gap: 8,
+                        backgroundColor: "#635bff",
+                        color: "#ffffff",
+                        border: "none",
+                        borderRadius: "8px",
+                        padding: "10px 16px",
+                        fontSize: "14px",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        boxShadow: "0 2px 4px rgba(99, 91, 255, 0.2)",
+                        fontFamily: "inherit",
+                        transition: "all 0.15s ease"
+                    }}
+                    id="btn-dashboard-upload-statement"
+                >
+                    <FileUp size={16} />
+                    <span>Upload Bank Statement</span>
+                </button>
 
             </div>
 
@@ -378,6 +412,14 @@ function Dashboard() {
 
             <RecentTransactions
                 transactions={transactions}
+            />
+
+            <BankStatementModal
+                isOpen={showStatementModal}
+                onClose={() => setShowStatementModal(false)}
+                onImportSuccess={(newTxs) => {
+                    setTransactions((prev) => [...newTxs, ...prev]);
+                }}
             />
 
         </div>

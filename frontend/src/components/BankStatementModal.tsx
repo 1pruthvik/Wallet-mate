@@ -145,8 +145,8 @@ const BankStatementModal: React.FC<BankStatementModalProps> = ({
         try {
             setIsImporting(true);
             setErrorMessage("");
-            const imported = await importBatchTransactions(extractedList);
-            onImportSuccess(imported);
+            const imported = await importBatchTransactions(extractedList, fileName);
+            onImportSuccess(imported.transactions);
             handleClose();
         } catch (err: any) {
             console.error("Batch import error:", err);

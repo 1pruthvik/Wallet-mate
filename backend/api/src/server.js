@@ -3,37 +3,42 @@ const cors = require("cors");
 const helmet = require("helmet");
 const morgan = require("morgan");
 const connectDB = require("./config/db");
+const authRoutes = require("./routes/authRoutes");
 const transactionRoutes = require("./routes/transactionRoutes");
 const authRoutes = require("./routes/authRoutes");
 require("dotenv").config();
 
 const app = express();
-
 const PORT = process.env.PORT || 5000;
 
 /*
  * Middleware
  */
-
 app.use(helmet());
 
 app.use(
     cors({
-        origin: "http://localhost:5173",
+        origin: (origin, callback) => {
+            // Allow all localhost dev origins (5173, 5174, 5175, etc.) or same-origin
+            if (!origin || /^http:\/\/localhost:\d+$/.test(origin) || /^http:\/\/127\.0\.0\.1:\d+$/.test(origin)) {
+                callback(null, true);
+            } else {
+                callback(null, true);
+            }
+        },
         credentials: true,
     })
 );
 
-app.use(express.json());
-
-app.use(express.urlencoded({ extended: true }));
-
+app.use(express.json({ limit: "20mb" }));
+app.use(express.urlencoded({ extended: true, limit: "20mb" }));
 app.use(morgan("dev"));
 
-app.use(
-    "/api/transactions",
-    transactionRoutes
-);
+/*
+ * Routes
+ */
+app.use("/api/auth", authRoutes);
+app.use("/api/transactions", transactionRoutes);
 
 app.use(
     "/api/auth",
@@ -45,30 +50,36 @@ app.use(
 app.get("/", (req, res) => {
     res.json({
         success: true,
-        message: "FinMitra API is running",
+        message: "Wallet-Mate API is running",
+        version: "2.0.0",
+        collections: ["users", "transactions"],
     });
 });
-
-/*
- * API health check
- */
 
 app.get("/api/health", (req, res) => {
     res.json({
         success: true,
-        service: "FinMitra API",
+        service: "Wallet-Mate API",
         status: "healthy",
+        database: "MongoDB (users, transactions)",
     });
 });
 
+// Connect to MongoDB
 connectDB();
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+    console.error("Unhandled server error:", err);
+    res.status(err.status || 500).json({
+        success: false,
+        message: err.message || "Internal server error",
+    });
+});
 
 /*
  * Start server
  */
-
 app.listen(PORT, () => {
-    console.log(
-        `FinMitra API running on http://localhost:${PORT}`
-    );
+    console.log(`Wallet-Mate API running on http://localhost:${PORT}`);
 });
