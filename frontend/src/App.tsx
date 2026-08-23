@@ -18,11 +18,15 @@ import Mentor from "./pages/Mentor";
 import Trading from "./pages/Trading";
 import FinancialHealth from "./pages/FinancialHealth";
 import Profile from "./pages/Profile";
+import HomePage from "./pages/HomePage";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* Public Landing Page */}
+        <Route path="/" element={<HomePage />} />
+
         {/* Auth Routes */}
         <Route path="/login" element={<AuthPage defaultMode="login" />} />
         <Route path="/signup" element={<AuthPage defaultMode="signup" />} />
@@ -37,10 +41,6 @@ function App() {
             </ProtectedRoute>
           }
         >
-          <Route
-            path="/"
-            element={<Navigate to="/dashboard" replace />}
-          />
 
           <Route
             path="/dashboard"
