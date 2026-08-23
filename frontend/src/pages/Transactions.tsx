@@ -9,6 +9,8 @@ import type {
     Transaction,
 } from "../api/transactions";
 
+import BankStatementModal from "../components/BankStatementModal";
+
 import { useForm } from "react-hook-form";
 
 import { z } from "zod";
@@ -156,6 +158,16 @@ function Transactions() {
     const [
         error,
         setError,
+    ] = useState("");
+
+    const [
+        showStatementModal,
+        setShowStatementModal,
+    ] = useState(false);
+
+    const [
+        successMessage,
+        setSuccessMessage,
     ] = useState("");
 
 
@@ -517,15 +529,57 @@ function Transactions() {
                 </div>
 
 
-                <button
-                    type="button"
-                    className="add-transaction-button"
-                    onClick={openForm}
-                >
-                    + Add Transaction
-                </button>
+                <div className="page-header-actions">
+                    <button
+                        type="button"
+                        className="import-statement-button"
+                        onClick={() => setShowStatementModal(true)}
+                    >
+                        <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            style={{ marginRight: "6px" }}
+                        >
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                            <path d="M12 18v-6" />
+                            <path d="m9 15 3-3 3 3" />
+                        </svg>
+                        Import Bank Statement
+                    </button>
+
+                    <button
+                        type="button"
+                        className="add-transaction-button"
+                        onClick={openForm}
+                    >
+                        + Add Transaction
+                    </button>
+                </div>
 
             </div>
+
+
+            {/* =================================================
+                SUCCESS MESSAGE
+            ================================================= */}
+
+            {successMessage && (
+                <div
+                    className="form-success-banner"
+                    style={{
+                        marginBottom: "20px",
+                    }}
+                >
+                    {successMessage}
+                </div>
+            )}
 
 
             {/* =================================================
@@ -1145,6 +1199,23 @@ function Transactions() {
 
             )}
 
+            {/* =================================================
+                BANK STATEMENT MODAL
+            ================================================= */}
+
+            <BankStatementModal
+                isOpen={showStatementModal}
+                onClose={() => setShowStatementModal(false)}
+                onImportSuccess={(imported) => {
+                    setTransactions((prev) => [...imported, ...prev]);
+                    setSuccessMessage(
+                        `Successfully imported ${imported.length} transactions from your statement.`
+                    );
+                    setTimeout(() => {
+                        setSuccessMessage("");
+                    }, 6000);
+                }}
+            />
 
         </div>
     );

@@ -13,6 +13,8 @@ import type {
     Transaction,
 } from "../api/transactions";
 
+import { calculateFinancialHealth } from "../utils/financialHealth";
+
 
 function Dashboard() {
 
@@ -220,33 +222,13 @@ function Dashboard() {
 
 
     /* =========================
-       FINANCIAL HEALTH
+       FINANCIAL HEALTH REPORT
     ========================= */
 
-    const financialHealth =
+    const healthReport =
         useMemo(() => {
-
-            if (monthlyIncome <= 0) {
-                return 0;
-            }
-
-            let score =
-                savingsRate;
-
-            if (score > 100) {
-                score = 100;
-            }
-
-            if (score < 0) {
-                score = 0;
-            }
-
-            return score;
-
-        }, [
-            monthlyIncome,
-            savingsRate,
-        ]);
+            return calculateFinancialHealth(transactions);
+        }, [transactions]);
 
 
     /* =========================
@@ -377,7 +359,9 @@ function Dashboard() {
             ========================= */}
 
             <FinancialHealthCard
-                score={financialHealth}
+                score={healthReport.score}
+                grade={healthReport.grade}
+                verdict={healthReport.verdict}
             />
 
 
@@ -385,7 +369,7 @@ function Dashboard() {
                 SPENDING CHART
             ========================= */}
 
-            <SpendingChart />
+            <SpendingChart transactions={transactions} />
 
 
             {/* =========================

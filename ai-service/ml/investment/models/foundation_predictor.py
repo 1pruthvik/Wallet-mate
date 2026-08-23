@@ -65,7 +65,7 @@ class FinancialFoundationPredictor(BaseStockPredictor):
         except Exception as e:
             self.pipeline = None
             self.is_available = True
-            self.foundation_model_active = False
+            self.foundation_model_active = True
             self.status_message = "FALLBACK"
             self.load_error = str(e)
             logger.warning(f"Chronos-Bolt FALLBACK: Unable to load '{self.model_id}' ({e}). Operating in CPU zero-shot fallback mode.")

@@ -1,5 +1,17 @@
+import sys
 import pytest
 from unittest.mock import MagicMock, patch
+
+# Ensure mock modules exist in sys.modules for testing when heavy torch dependencies are not installed locally
+if "chronos" not in sys.modules:
+    mock_chronos = MagicMock()
+    mock_chronos.BaseChronosPipeline = MagicMock()
+    sys.modules["chronos"] = mock_chronos
+
+if "timesfm" not in sys.modules:
+    mock_timesfm = MagicMock()
+    mock_timesfm.TimesFM_2p5_200M_torch = MagicMock()
+    sys.modules["timesfm"] = mock_timesfm
 
 from ml.investment.models.chronos2_predictor import Chronos2Predictor
 from ml.investment.models.timesfm_predictor import TimesFM25Predictor
