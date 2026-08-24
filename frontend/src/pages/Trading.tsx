@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { getMarketStatus } from "../api/ai";
 import type { MarketStatusResponse } from "../api/ai";
 import { useAuthStore } from "../store/useAuthStore";
+import { useMarketWebSocket } from "../hooks/useMarketWebSocket";
 import {
     DollarSign,
     Briefcase,
@@ -11,7 +12,10 @@ import {
     X,
     Clock,
     Zap,
+    Wifi,
+    WifiOff,
 } from "lucide-react";
+
 
 interface StockQuote {
     symbol: string;
@@ -134,9 +138,29 @@ const STOCK_UNIVERSE: StockQuote[] = [
 const Trading: React.FC = () => {
     const { user } = useAuthStore();
     const userStorageKey = user?.id || "guest";
+    const { isConnected: isWsConnected, liveQuotes, liveRankings } = useMarketWebSocket();
 
     const [activeTab, setActiveTab] = useState<"watchlist" | "positions" | "history">("watchlist");
     const [filterSector, setFilterSector] = useState<string>("All");
+
+    // Dynamic stock universe merged with real-time WebSocket ticks & ML model rankings
+    const stockUniverse = useMemo(() => {
+        return STOCK_UNIVERSE.map((stock) => {
+            const liveQ = liveQuotes[stock.symbol] || liveQuotes[`${stock.symbol}.NS`];
+            const liveR = liveRankings.find((r) => r.symbol === stock.symbol || r.full_symbol === `${stock.symbol}.NS`);
+
+            return {
+                ...stock,
+                currentPrice: liveQ ? liveQ.last_price : (liveR ? liveR.current_price : stock.currentPrice),
+                change: liveQ ? liveQ.change : stock.change,
+                changePct: liveQ ? liveQ.change_percent : (liveR ? liveR.change_percent : stock.changePct),
+                expectedReturn: liveR ? liveR.expected_return_pct : stock.expectedReturn,
+                probabilityUp: liveR ? liveR.probability_up : stock.probabilityUp,
+                confidence: (liveR ? (liveR.confidence.toUpperCase().includes("HIGH") ? "HIGH_CONFIDENCE" : "MEDIUM_CONFIDENCE") : stock.confidence) as "HIGH_CONFIDENCE" | "MEDIUM_CONFIDENCE" | "LOW_CONFIDENCE",
+            };
+        });
+    }, [liveQuotes, liveRankings]);
+
 
     // User-scoped simulator cash
     const [cash, setCash] = useState<number>(() => {
@@ -215,11 +239,12 @@ const Trading: React.FC = () => {
 
     const totalPLPct = totalInvested > 0 ? (totalUnrealizedPL / totalInvested) * 100 : 0;
 
-    const sectors = ["All", ...Array.from(new Set(STOCK_UNIVERSE.map((s) => s.sector)))];
+    const sectors = ["All", ...Array.from(new Set(stockUniverse.map((s) => s.sector)))];
 
-    const filteredStocks = STOCK_UNIVERSE.filter((s) => {
+    const filteredStocks = stockUniverse.filter((s) => {
         return filterSector === "All" || s.sector === filterSector;
     });
+
 
     const openTradeModal = (stock: StockQuote, type: "BUY" | "SELL" = "BUY") => {
         setSelectedStock(stock);
@@ -334,12 +359,28 @@ const Trading: React.FC = () => {
                     </p>
                 </div>
 
-                <div className="wm-header-actions">
+                <div className="wm-header-actions" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <div className="wm-market-pill" style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        padding: '6px 12px',
+                        borderRadius: '20px',
+                        backgroundColor: isWsConnected ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                        border: `1px solid ${isWsConnected ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                        color: isWsConnected ? '#10b981' : '#ef4444',
+                        fontSize: '0.8rem',
+                        fontWeight: 600
+                    }}>
+                        {isWsConnected ? <Wifi size={14} /> : <WifiOff size={14} />}
+                        <span>{isWsConnected ? "LIVE WEBSOCKET" : "OFFLINE"}</span>
+                    </div>
                     <div className="wm-market-pill">
                         <span className="wm-market-dot" />
-                        <span>Market: {marketStatus?.market_status || "Open (Simulated)"}</span>
+                        <span>Market: {marketStatus?.market_status || "Open"}</span>
                     </div>
                 </div>
+
             </div>
 
             {/* Portfolio Overview Cards */}

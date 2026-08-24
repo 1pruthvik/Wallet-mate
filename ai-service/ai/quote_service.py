@@ -107,12 +107,13 @@ class MarketQuoteService:
                 "symbol": symbol,
                 "company": instrument.get("company", symbol),
                 "exchange": exchange,
+                "price": snapshot.latest_price,
                 "current_price": snapshot.latest_price,
                 "change": snapshot.price_change_24h,
                 "change_percent": snapshot.price_change_pct_24h,
                 "timestamp": snapshot.last_updated.isoformat() if hasattr(snapshot.last_updated, "isoformat") else str(snapshot.last_updated),
                 "data_source": self.provider.__class__.__name__,
-                "data_quality": getattr(snapshot, "data_quality", "VERIFIED")
+                "data_quality": getattr(snapshot, "data_quality", "LIVE")
             }
         except Exception as e:
             return {

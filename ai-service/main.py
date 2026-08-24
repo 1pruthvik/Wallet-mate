@@ -1,5 +1,6 @@
 import os
 import json
+import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Optional, Any, Dict, List
@@ -8,14 +9,18 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 import uvicorn
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from parsing.sms_parser import parse_sms
 from parsing.transaction_model import Transaction
 from ml.financial_report import generate_financial_report
+from ai.tools import MarketDataTools
+
 
 # Existing Investment Intelligence Imports
 from ml.investment.schemas import (
@@ -104,6 +109,8 @@ from ai.quote_service import MarketQuoteService
 
 instrument_resolver = InstrumentResolver(market_provider)
 quote_service = MarketQuoteService(market_provider)
+market_data_tools = MarketDataTools(market_service, ensemble_predictor)
+
 
 
 
@@ -778,6 +785,10 @@ def privacy_delete_my_data_endpoint(user_id: str):
 # DYNAMIC MARKET & ASSET SEARCH ENDPOINTS
 # ==================================================
 
+# ==================================================
+# DYNAMIC MARKET & ASSET SEARCH ENDPOINTS
+# ==================================================
+
 @app.get("/market/search")
 def market_search_endpoint(q: str):
     """
@@ -800,6 +811,14 @@ def market_quote_query_endpoint(query: str):
     return result
 
 
+@app.get("/market/status", response_model=MarketStatusResponse)
+def market_status_endpoint():
+    """
+    Returns live market data provider connection state, market status (OPEN/CLOSED), and data quality headers.
+    """
+    return market_service.get_market_status()
+
+
 @app.get("/market/instrument/{symbol}")
 def market_instrument_endpoint(symbol: str):
     """
@@ -814,8 +833,123 @@ def market_instrument_endpoint(symbol: str):
     return details
 
 
+# ==================================================
+# REAL-TIME WEBSOCKET STREAMING & GEMINI FUNCTION CHAT
+# ==================================================
+
+@app.websocket("/ws/market")
+@app.websocket("/ws/market-data")
+async def websocket_market(websocket: WebSocket):
+    """
+    Real-time WebSocket endpoint streaming live market quotes and handling interactive client subscriptions.
+    Backend owns external market data feed; clients subscribe/unsubscribe via JSON actions.
+    """
+    await websocket.accept()
+    client_id = f"user_{id(websocket)}"
+    logger.info(f"WebSocket client connected to /ws/market: {client_id}")
+    import asyncio
+    
+    # Default initial subscriptions for client session
+    user_symbols = set(["ICICIBANK.NS", "RELIANCE.NS", "AAPL"])
+    market_service.subscribe(list(user_symbols), user_id=client_id)
+
+    try:
+        async def receive_loop():
+            nonlocal user_symbols
+            while True:
+                try:
+                    data_text = await websocket.receive_text()
+                    msg = json.loads(data_text)
+                    action = msg.get("action", "").lower()
+                    raw_symbols = msg.get("symbols", [])
+
+                    if action == "subscribe" and raw_symbols:
+                        resolved = []
+                        for sym in raw_symbols:
+                            res = instrument_resolver.resolve_query(sym)
+                            if res["status"] == "SUCCESS":
+                                resolved.append(res["instrument"]["symbol"])
+                            else:
+                                resolved.append(sym.upper())
+                        added = market_service.subscribe(resolved, user_id=client_id)
+                        user_symbols.update(added)
+                        await websocket.send_text(json.dumps({
+                            "type": "subscription_ack",
+                            "action": "subscribe",
+                            "subscribed": list(user_symbols)
+                        }))
+
+                    elif action == "unsubscribe" and raw_symbols:
+                        removed = market_service.unsubscribe(raw_symbols, user_id=client_id)
+                        user_symbols.difference_update(removed)
+                        await websocket.send_text(json.dumps({
+                            "type": "subscription_ack",
+                            "action": "unsubscribe",
+                            "subscribed": list(user_symbols)
+                        }))
+                except WebSocketDisconnect:
+                    break
+                except Exception as e_recv:
+                    logger.warning(f"WebSocket receive loop error: {e_recv}")
+                    break
+
+        recv_task = asyncio.create_task(receive_loop())
+
+        while True:
+            if user_symbols:
+                quotes = market_service.get_all_live_quotes(list(user_symbols))
+                for q in quotes:
+                    payload = {
+                        "type": "quote",
+                        "symbol": q.symbol,
+                        "company": q.company,
+                        "exchange": q.exchange,
+                        "price": q.last_price,
+                        "change": q.change,
+                        "change_percent": q.change_percent,
+                        "timestamp": q.data_timestamp,
+                        "received_at": q.received_at,
+                        "data_source": q.data_source,
+                        "data_quality": q.data_quality
+                    }
+                    await websocket.send_text(json.dumps(payload))
+            await asyncio.sleep(2.5)
+    except WebSocketDisconnect:
+        logger.info(f"WebSocket client disconnected: {client_id}")
+    except Exception as e:
+        logger.warning(f"WebSocket connection error: {e}")
+    finally:
+        market_service.unsubscribe(list(user_symbols), user_id=client_id)
+        try:
+            await websocket.close()
+        except Exception:
+            pass
+
+
+class FunctionChatRequest(BaseModel):
+    message: str
+    symbol: Optional[str] = None
+
+
+@app.post("/api/v1/ai/function-chat")
+def ai_function_chat_endpoint(request: FunctionChatRequest):
+    """
+    Natural Language AI Chat powered by Gemini Function Calling.
+    Dynamically executes tool calls against MarketDataProvider and ML models to generate grounded answers.
+    """
+    rag_res = rag_service.query(RAGQueryRequest(query=request.message, top_k=2))
+    response = ai_service.answer_function_chat(
+        message=request.message,
+        tools_executor=market_data_tools,
+        rag_chunks=rag_res.chunks
+    )
+    return response
+
+
 if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8001))
+    port = int(os.getenv("PORT", 8000))
     uvicorn.run("main:app", host="127.0.0.1", port=port, reload=False)
+
+
 
 

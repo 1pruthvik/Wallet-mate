@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const AI_API_BASE = import.meta.env.VITE_AI_API_URL || "http://localhost:8001";
+const AI_API_BASE = import.meta.env.VITE_AI_API_URL || "http://localhost:8000";
 
 const aiClient = axios.create({
     baseURL: AI_API_BASE,
@@ -58,10 +58,17 @@ export interface LivePredictResponse {
     };
 }
 
+export interface AIFunctionCall {
+    name: string;
+    args: Record<string, unknown>;
+    output: Record<string, unknown>;
+}
+
 export interface AIChatResponse {
     answer: string;
     citations?: { source_id: string; title: string; section?: string }[];
     confidence?: number;
+    function_call?: AIFunctionCall;
 }
 
 /**
@@ -103,4 +110,16 @@ export async function queryAIMentor(message: string, financialContext?: Record<s
     return res.data;
 }
 
+/**
+ * Query Gemini AI Function Calling endpoint (triggers MarketDataProvider and ML models)
+ */
+export async function queryAIFunctionChat(message: string, symbol?: string): Promise<AIChatResponse> {
+    const res = await aiClient.post<AIChatResponse>("/api/v1/ai/function-chat", {
+        message,
+        symbol,
+    });
+    return res.data;
+}
+
 export default aiClient;
+

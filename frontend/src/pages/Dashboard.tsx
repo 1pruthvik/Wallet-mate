@@ -4,6 +4,7 @@ import SpendingChart from "../components/SpendingChart";
 import RecentTransactions from "../components/RecentTransactions";
 import FinancialHealthCard from "../components/FinancialHealthCard";
 import BankStatementModal from "../components/BankStatementModal";
+import LiveMarketWatchlist from "../components/LiveMarketWatchlist";
 import {
     FileUp,
     Wallet,
@@ -213,6 +214,9 @@ function Dashboard() {
                     trend={{ value: `${savingsRate}% Rate`, isPositive: savingsRate >= 20, neutral: savingsRate === 0 }}
                 />
             </div>
+
+            {/* Live Market Watchlist & Price Feed */}
+            <LiveMarketWatchlist />
 
             {/* Health Score & Diagnostics Widget */}
             <FinancialHealthCard

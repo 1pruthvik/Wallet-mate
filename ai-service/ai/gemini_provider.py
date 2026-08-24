@@ -170,3 +170,46 @@ class GeminiProvider(AIProvider):
             logger.warning(f"Gemini chat request failed cleanly ({type(e).__name__}); falling back to MockAIProvider.")
             return self._fallback.chat(message, financial_context, rag_chunks)
 
+    def function_chat(
+        self,
+        message: str,
+        tools_executor: Any,
+        financial_context: Optional[dict] = None,
+        rag_chunks: Optional[list[DocumentChunk]] = None
+    ) -> dict[str, Any]:
+        """
+        Processes natural-language queries using Gemini tool calls (or intent dispatcher fallback).
+        Invokes MarketDataProvider / ML model tools dynamically and returns grounded explanation.
+        """
+        # Execute tool via intent dispatcher or Gemini tool declaration
+        tool_exec_info = tools_executor.parse_intent_and_execute(message) if tools_executor else None
+
+        if tool_exec_info:
+            function_name = tool_exec_info["tool_called"]
+            func_args = tool_exec_info["args"]
+            func_result = tool_exec_info["result"]
+
+            augmented_query = (
+                f"User Question: '{message}'\n\n"
+                f"[SYSTEM EXECUTED FUNCTION CALL]\n"
+                f"Function: MarketDataProvider.{function_name}({json.dumps(func_args)})\n"
+                f"Live Market Output Data:\n{json.dumps(func_result, indent=2)}\n\n"
+                f"Instruction: Provide a concise, highly insightful, natural language financial answer based strictly on the live market output data above."
+            )
+
+            response_dict = self.chat(
+                message=augmented_query,
+                financial_context=financial_context,
+                rag_chunks=rag_chunks
+            )
+
+            response_dict["function_call"] = {
+                "name": function_name,
+                "args": func_args,
+                "output": func_result
+            }
+            return response_dict
+        else:
+            return self.chat(message, financial_context, rag_chunks)
+
+

@@ -22,7 +22,7 @@ export const MSG91OTPWidget: React.FC<MSG91OTPWidgetProps> = ({
   onClose,
   onCompletion,
 }) => {
-  const [isScriptLoaded, setIsScriptLoaded] = useState(false);
+  const [, setIsScriptLoaded] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
@@ -75,7 +75,7 @@ export const MSG91OTPWidget: React.FC<MSG91OTPWidgetProps> = ({
         }
       }
     }
-  }, [visible, widgetId, tokenAuth]);
+  }, [visible, widgetId, tokenAuth, onClose, onCompletion]);
 
   if (!visible) return null;
 

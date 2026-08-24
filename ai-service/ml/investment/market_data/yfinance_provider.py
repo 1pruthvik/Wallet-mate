@@ -92,29 +92,60 @@ class YFinanceMarketDataProvider(MarketDataProvider):
             if self._is_cache_valid(cached_time):
                 return cached_snapshot
 
-        end_date = datetime.now()
-        start_date = end_date - timedelta(days=5)
-        prices = self.get_historical_prices(symbol, start_date, end_date)
+        ticker_symbol = self._format_ticker(symbol)
+        try:
+            import yfinance as yf
+            ticker = yf.Ticker(ticker_symbol)
+            
+            # Fast path using yfinance fast_info
+            fast = getattr(ticker, "fast_info", None)
+            if fast:
+                try:
+                    price = float(fast.get("last_price") or fast.get("lastPrice") or 0.0)
+                    prev_close = float(fast.get("previous_close") or fast.get("previousClose") or price)
+                    vol = float(fast.get("last_volume") or fast.get("lastVolume") or 1000000.0)
+                    if price > 0:
+                        change_24h = price - prev_close
+                        change_pct = (change_24h / prev_close * 100.0) if prev_close else 0.0
+                        snapshot = MarketSnapshot(
+                            symbol=symbol.upper(),
+                            latest_price=round(price, 2),
+                            price_change_24h=round(change_24h, 2),
+                            price_change_pct_24h=round(change_pct, 2),
+                            volume_24h=round(vol, 2),
+                            last_updated=datetime.now(),
+                        )
+                        self._snapshot_cache[cache_key] = (datetime.now(), snapshot)
+                        return snapshot
+                except Exception as e_fast:
+                    logger.debug(f"fast_info parse error for {symbol}: {e_fast}")
 
-        if not prices:
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=5)
+            prices = self.get_historical_prices(symbol, start_date, end_date)
+
+            if not prices:
+                return self._fallback_provider.get_latest_price(symbol)
+
+            latest = prices[-1]
+            prev = prices[-2] if len(prices) > 1 else latest
+            change_24h = latest.close - prev.close
+            change_pct = (change_24h / prev.close * 100.0) if prev.close else 0.0
+
+            snapshot = MarketSnapshot(
+                symbol=symbol.upper(),
+                latest_price=latest.close,
+                price_change_24h=round(change_24h, 2),
+                price_change_pct_24h=round(change_pct, 2),
+                volume_24h=latest.volume,
+                last_updated=datetime.now(),
+            )
+
+            self._snapshot_cache[cache_key] = (datetime.now(), snapshot)
+            return snapshot
+        except Exception as e:
+            logger.warning(f"Failed to fetch yfinance quote for {symbol}: {e}, using mock fallback.")
             return self._fallback_provider.get_latest_price(symbol)
-
-        latest = prices[-1]
-        prev = prices[-2] if len(prices) > 1 else latest
-        change_24h = latest.close - prev.close
-        change_pct = (change_24h / prev.close * 100.0) if prev.close else 0.0
-
-        snapshot = MarketSnapshot(
-            symbol=symbol.upper(),
-            latest_price=latest.close,
-            price_change_24h=round(change_24h, 2),
-            price_change_pct_24h=round(change_pct, 2),
-            volume_24h=latest.volume,
-            last_updated=datetime.now(),
-        )
-
-        self._snapshot_cache[cache_key] = (datetime.now(), snapshot)
-        return snapshot
 
     def get_fundamentals(self, symbol: str) -> FundamentalSnapshot:
         cache_key = symbol.upper()

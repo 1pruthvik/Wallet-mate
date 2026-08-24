@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { getTransactions, type Transaction } from "../api/transactions";
 import { calculateFinancialHealth } from "../utils/financialHealth";
-import { queryAIMentor } from "../api/ai";
+import { queryAIMentor, queryAIFunctionChat } from "../api/ai";
 import { useAuthStore } from "../store/useAuthStore";
+
 import {
     Sparkles,
     Send,
@@ -27,7 +28,13 @@ interface ChatMessage {
         title: string;
         metrics: { label: string; value: string }[];
     };
+    functionCall?: {
+        name: string;
+        args: Record<string, unknown>;
+        output: Record<string, unknown>;
+    };
 }
+
 
 const QUICK_PROMPTS = [
     {
@@ -228,14 +235,19 @@ const Mentor: React.FC = () => {
         setIsTyping(true);
 
         try {
-            // Attempt to query AI RAG service
-            const aiResponse = await queryAIMentor(text, {
-                healthScore: health.score,
-                monthlyIncome: health.monthlyIncome,
-                monthlyExpenses: health.monthlyExpenses,
-                savingsRate: health.savingsRate,
-                topCategory: "General",
-            });
+            // Query Gemini Function Calling endpoint
+            let aiResponse = await queryAIFunctionChat(text).catch(() => null);
+
+            // Fallback to standard AI mentor query if function chat is unavailable
+            if (!aiResponse || !aiResponse.answer) {
+                aiResponse = await queryAIMentor(text, {
+                    healthScore: health.score,
+                    monthlyIncome: health.monthlyIncome,
+                    monthlyExpenses: health.monthlyExpenses,
+                    savingsRate: health.savingsRate,
+                    topCategory: "General",
+                });
+            }
 
             if (aiResponse && aiResponse.answer) {
                 messageSequence += 1;
@@ -246,22 +258,25 @@ const Mentor: React.FC = () => {
                         sender: "mentor",
                         text: aiResponse.answer,
                         timestamp: "Just now",
+                        functionCall: aiResponse.function_call,
                     },
                 ]);
+                setIsTyping(false);
+            } else {
                 setIsTyping(false);
                 return;
             }
         } catch (error) {
             console.warn("AI Service offline, using localized financial engine:", error);
+            // Localized fallback response engine
+            setTimeout(() => {
+                const fallbackReply = generateLocalMentorResponse(text);
+                setMessages((prev) => [...prev, fallbackReply]);
+                setIsTyping(false);
+            }, 600);
         }
-
-        // Localized fallback response engine
-        setTimeout(() => {
-            const fallbackReply = generateLocalMentorResponse(text);
-            setMessages((prev) => [...prev, fallbackReply]);
-            setIsTyping(false);
-        }, 600);
     };
+
 
     const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === "Enter" && !e.shiftKey) {
@@ -300,6 +315,27 @@ const Mentor: React.FC = () => {
                                     </div>
 
                                     <div className="wm-chat-bubble">
+                                        {msg.functionCall && (
+                                            <div style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px',
+                                                fontSize: '0.75rem',
+                                                padding: '4px 10px',
+                                                borderRadius: '6px',
+                                                backgroundColor: 'rgba(99, 91, 255, 0.12)',
+                                                color: '#635bff',
+                                                border: '1px solid rgba(99, 91, 255, 0.25)',
+                                                marginBottom: '8px',
+                                                fontWeight: 600
+                                            }}>
+                                                <span>⚡ Executed Function Call:</span>
+                                                <code style={{ fontFamily: 'monospace', background: 'rgba(0,0,0,0.1)', padding: '2px 5px', borderRadius: '4px' }}>
+                                                    MarketDataProvider.{msg.functionCall.name}({JSON.stringify(msg.functionCall.args)})
+                                                </code>
+                                            </div>
+                                        )}
+
                                         {msg.verdict && (
                                             <div className={`wm-verdict-badge ${msg.verdict.toLowerCase()}`}>
                                                 {msg.verdict === "BUY" && <CheckCircle size={14} />}
@@ -309,6 +345,7 @@ const Mentor: React.FC = () => {
                                                 <span>SIGNAL: {msg.verdict.replace("_", " ")}</span>
                                             </div>
                                         )}
+
 
                                         <div className="wm-chat-text">
                                             {msg.text.split("\n\n").map((paragraph, idx) => (

@@ -190,6 +190,7 @@ class AIChatResponse(BaseModel):
 
 class MarketQuote(BaseModel):
     symbol: str
+    company: str = ""
     exchange: str = "NSE"
     last_price: float
     open: float
@@ -199,10 +200,18 @@ class MarketQuote(BaseModel):
     volume: float
     change: float = 0.0
     change_percent: float = 0.0
-    data_source: str = "YFINANCE"
+    data_source: str = "PROVIDER"
     data_quality: Literal["LIVE", "RECENT", "STALE", "HISTORICAL", "UNAVAILABLE"] = "LIVE"
     data_timestamp: str = Field(default_factory=lambda: datetime.now().isoformat())
     received_at: str = Field(default_factory=lambda: datetime.now().isoformat())
+
+    @property
+    def price(self) -> float:
+        return self.last_price
+
+    @property
+    def timestamp(self) -> str:
+        return self.data_timestamp
 
 
 class MarketStatusResponse(BaseModel):
@@ -210,6 +219,7 @@ class MarketStatusResponse(BaseModel):
     connection: Literal["CONNECTED", "DISCONNECTED"] = "CONNECTED"
     market_status: Literal["OPEN", "CLOSED", "PRE_OPEN", "UNKNOWN"] = "OPEN"
     last_update: str = Field(default_factory=lambda: datetime.now().isoformat())
+    symbols_streaming: int = 0
     data_quality: Literal["LIVE", "RECENT", "STALE", "UNAVAILABLE"] = "LIVE"
 
 

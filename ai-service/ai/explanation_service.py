@@ -45,3 +45,20 @@ class AIExplanationService:
             financial_context=financial_context,
             rag_chunks=rag_chunks
         )
+
+    def answer_function_chat(
+        self,
+        message: str,
+        tools_executor: Any,
+        financial_context: Optional[dict] = None,
+        rag_chunks: Optional[list[DocumentChunk]] = None
+    ) -> dict[str, Any]:
+        if hasattr(self.provider, "function_chat"):
+            return self.provider.function_chat(
+                message=message,
+                tools_executor=tools_executor,
+                financial_context=financial_context,
+                rag_chunks=rag_chunks
+            )
+        return self.answer_financial_chat(message, financial_context, rag_chunks)
+
