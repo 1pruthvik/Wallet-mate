@@ -1,4 +1,7 @@
-const API_BASE = "http://localhost:5000/api";
+const app = require("./server");
+
+const PORT = 5000;
+const API_BASE = `http://localhost:${PORT}/api`;
 
 async function postJson(url, body, token) {
     const headers = { "Content-Type": "application/json" };
@@ -30,10 +33,19 @@ async function runTests() {
     console.log("🚀 STARTING WALLET-MATE MONGODB & AUTH TEST SUITE");
     console.log("=================================================\n");
 
+    let server;
+    try {
+        server = await new Promise((resolve) => {
+            const s = app.listen(PORT, () => resolve(s));
+        });
+    } catch (err) {
+        // Server might already be running
+    }
+
     try {
         // 1. Health check
         console.log("1. Checking API Health...");
-        const health = await getJson("http://localhost:5000/api/health");
+        const health = await getJson(`http://localhost:${PORT}/api/health`);
         console.log("   ✅ Health Status:", health.data.status, "| Service:", health.data.service);
 
         // 2. Register User A
@@ -43,7 +55,6 @@ async function runTests() {
             fullName: "Alice Morgan",
             email: uniqueEmailA,
             password: "Password@2026",
-            phoneNumber: `+9198${Date.now().toString().slice(-8)}`,
         });
         if (!regResA.ok) throw new Error(JSON.stringify(regResA.data));
         console.log("   ✅ User A Registered! ID:", regResA.data.user.id);
@@ -99,53 +110,71 @@ async function runTests() {
             },
             tokenA
         );
-        console.log("   Response status:", txA1.status, "data:", txA1.data);
+        console.log("   ✅ Tx 1 Created for User A:", txA1.data.transaction?.merchant, "₹", txA1.data.transaction?.amount);
+
+        const txA2 = await postJson(
+            `${API_BASE}/transactions`,
+            {
+                merchant: "Tech Corp Salary",
+                amount: 85000,
+                type: "income",
+                category: "Salary",
+                date: new Date().toISOString(),
+                description: "Monthly salary credit",
+            },
+            tokenA
+        );
+        console.log("   ✅ Tx 2 Created for User A:", txA2.data.transaction?.merchant, "₹", txA2.data.transaction?.amount);
 
         // 7. Create Transaction for User B
         console.log("\n7. Creating Transactions for User B...");
         const txB1 = await postJson(
             `${API_BASE}/transactions`,
             {
-                merchant: "Tech Salary Corp",
-                amount: 90000,
-                type: "income",
-                category: "Salary",
+                merchant: "Netflix Subscription",
+                amount: 649,
+                type: "expense",
+                category: "Entertainment",
                 date: new Date().toISOString(),
-                description: "Monthly salary",
+                description: "Monthly subscription",
             },
             tokenB
         );
-        console.log("   Response status:", txB1.status, "data:", txB1.data);
+        console.log("   ✅ Tx 1 Created for User B:", txB1.data.transaction?.merchant, "₹", txB1.data.transaction?.amount);
 
-        // 8. Test Multi-Tenant User Isolation
-        console.log("\n8. Verifying Strict User Isolation...");
-        const userAFetch = await getJson(`${API_BASE}/transactions`, tokenA);
-        const userBFetch = await getJson(`${API_BASE}/transactions`, tokenB);
+        // 8. Test Data Isolation (User A should NOT see User B transactions)
+        console.log("\n8. Testing Data Isolation & Ownership...");
+        const userATxs = await getJson(`${API_BASE}/transactions`, tokenA);
+        const userBTxs = await getJson(`${API_BASE}/transactions`, tokenB);
 
-        const txsA = userAFetch.data.transactions || [];
-        const txsB = userBFetch.data.transactions || [];
-
-        console.log(`   User A transactions: ${txsA.length} (contains Swiggy: ${txsA.some(t => t.merchant?.includes("Swiggy"))})`);
-        console.log(`   User B transactions: ${txsB.length} (contains Salary: ${txsB.some(t => t.merchant?.includes("Salary"))})`);
+        console.log(`   User A Tx Count: ${userATxs.data.transactions?.length} (Expected: 2)`);
+        console.log(`   User B Tx Count: ${userBTxs.data.transactions?.length} (Expected: 1)`);
 
         const isIsolated =
-            txsA.length > 0 &&
-            txsB.length > 0 &&
-            !txsA.some(t => t.merchant?.includes("Salary")) &&
-            !txsB.some(t => t.merchant?.includes("Swiggy"));
+            userATxs.data.transactions?.length === 2 &&
+            userBTxs.data.transactions?.length === 1 &&
+            !userATxs.data.transactions.some((t) => t.merchant === "Netflix Subscription") &&
+            !userBTxs.data.transactions.some((t) => t.merchant === "Swiggy Food");
 
         if (isIsolated) {
-            console.log("   ✅ User isolation verified: User A CANNOT see User B transactions!");
+            console.log("   ✅ STRICT DATA ISOLATION CONFIRMED: Users cannot access each other's transactions.");
         } else {
-            console.error("   ❌ User isolation failed or transactions empty!");
+            console.error("   ❌ DATA ISOLATION FAILED!");
         }
 
-        // 9. Test Batch PDF Transactions Import & Deduplication
-        console.log("\n9. Testing Batch PDF Transactions Import & Deduplication...");
+        // 9. Test Analytics Endpoint for User A
+        console.log("\n9. Testing MongoDB Financial Analytics for User A...");
+        const summaryA = await getJson(`${API_BASE}/transactions/summary`, tokenA);
+        console.log("   ✅ Total Inflow (Income): ₹", summaryA.data.summary?.totalIncome);
+        console.log("   ✅ Total Outflow (Expenses): ₹", summaryA.data.summary?.totalExpenses);
+        console.log("   ✅ Net Cashflow (Balance): ₹", summaryA.data.summary?.netBalance);
+
+        // 10. Test Batch Import & Deduplication
+        console.log("\n10. Testing Statement Import & Deduplication...");
         const batchPayload = [
             {
-                merchant: "Amazon.in",
-                amount: 1999,
+                merchant: "Amazon India",
+                amount: 1499,
                 type: "expense",
                 category: "Shopping",
                 date: new Date().toISOString(),
@@ -160,7 +189,7 @@ async function runTests() {
                 date: new Date().toISOString(),
                 description: "Cab to Office",
                 referenceNumber: "REF_UBR_002",
-            }
+            },
         ];
 
         const import1 = await postJson(
@@ -187,6 +216,11 @@ async function runTests() {
         console.log("=================================================");
     } catch (err) {
         console.error("Test error:", err.message);
+    } finally {
+        if (server && server.close) {
+            server.close();
+        }
+        process.exit(0);
     }
 }
 

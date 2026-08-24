@@ -24,13 +24,6 @@ const userSchema = new mongoose.Schema(
             index: true,
         },
 
-        phoneNumber: {
-            type: String,
-            trim: true,
-            sparse: true,
-            index: true,
-        },
-
         passwordHash: {
             type: String,
             select: false, // Never return password hash in regular queries
@@ -38,22 +31,11 @@ const userSchema = new mongoose.Schema(
 
         authProvider: {
             type: String,
-            enum: ["email", "phone", "google", "passkey", "sso"],
+            enum: ["email"],
             default: "email",
         },
 
-        googleId: {
-            type: String,
-            sparse: true,
-            index: true,
-        },
-
         isEmailVerified: {
-            type: Boolean,
-            default: false,
-        },
-
-        isPhoneVerified: {
             type: Boolean,
             default: false,
         },

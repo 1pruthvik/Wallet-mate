@@ -5,7 +5,6 @@ import { calculateFinancialHealth } from "../utils/financialHealth";
 import {
     User,
     Mail,
-    Phone,
     Shield,
     Key,
     Lock,
@@ -144,7 +143,7 @@ const Profile: React.FC = () => {
                 <div className="wm-profile-hero-info">
                     <div className="wm-profile-hero-badge">
                         <Shield size={13} />
-                        <span>{user?.authProvider === 'google' ? 'Verified Google Account' : 'Standard Email Account'}</span>
+                        <span>Standard Verified Account</span>
                     </div>
                     <h2 className="wm-profile-hero-name">{user?.name || "Authenticated User"}</h2>
                     <p className="wm-profile-hero-email">{user?.email || "No email on file"}</p>
@@ -175,9 +174,7 @@ const Profile: React.FC = () => {
                                 <Key size={15} />
                                 <span>Sign-In Method</span>
                             </div>
-                            <span className="wm-info-val">
-                                {user?.authProvider === "google" ? "Google OAuth 2.0" : "Email & Password"}
-                            </span>
+                            <span className="wm-info-val">Email & Password</span>
                         </div>
 
                         <div className="wm-info-row">
@@ -186,14 +183,6 @@ const Profile: React.FC = () => {
                                 <span>Primary Email</span>
                             </div>
                             <span className="wm-info-val">{user?.email || "-"}</span>
-                        </div>
-
-                        <div className="wm-info-row">
-                            <div className="wm-info-label">
-                                <Phone size={15} />
-                                <span>Mobile Number</span>
-                            </div>
-                            <span className="wm-info-val">{user?.phone || "Not linked"}</span>
                         </div>
 
                         <div className="wm-info-row">

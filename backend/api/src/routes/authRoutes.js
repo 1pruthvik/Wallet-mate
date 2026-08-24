@@ -2,9 +2,6 @@ const express = require("express");
 const {
     register,
     login,
-    googleAuth,
-    sendOtp,
-    verifyOtp,
     getMe,
     resetPassword,
 } = require("../controllers/authController");
@@ -21,21 +18,6 @@ router.post("/register", register);
  * POST /api/auth/login
  */
 router.post("/login", login);
-
-/*
- * POST /api/auth/google
- */
-router.post("/google", googleAuth);
-
-/*
- * POST /api/auth/send-otp
- */
-router.post("/send-otp", sendOtp);
-
-/*
- * POST /api/auth/verify-otp
- */
-router.post("/verify-otp", verifyOtp);
 
 /*
  * POST /api/auth/reset-password

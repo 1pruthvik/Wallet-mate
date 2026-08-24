@@ -1,4 +1,4 @@
-import type { User, AuthResponse, OtpSession, SignupData } from '../types/auth';
+import type { User, AuthResponse, SignupData } from '../types/auth';
 import apiClient from '../api/client';
 
 const STORAGE_KEYS = {
@@ -6,17 +6,7 @@ const STORAGE_KEYS = {
   TOKEN: 'wallet_mate_auth_token',
   REMEMBER: 'wallet_mate_remember_me',
   USERS_DB: 'wallet_mate_users_db',
-  OTP_SESSION: 'wallet_mate_current_otp_session',
 };
-
-export interface GoogleAuthPayload {
-  credential?: string;
-  email?: string;
-  name?: string;
-  picture?: string;
-  googleId?: string;
-  sub?: string;
-}
 
 class AuthService {
   public isConfiguredForBackend(): boolean {
@@ -41,15 +31,6 @@ class AuthService {
     } catch {
       // ignore
     }
-  }
-
-  private maskPhoneNumber(countryCode: string, phone: string): string {
-    const cleanPhone = phone.replace(/\D/g, '');
-    if (cleanPhone.length <= 4) return `${countryCode} ${cleanPhone}`;
-    const start = cleanPhone.slice(0, 2);
-    const end = cleanPhone.slice(-2);
-    const masked = 'X'.repeat(Math.max(4, cleanPhone.length - 4));
-    return `${countryCode} ${start}${masked}${end}`;
   }
 
   // ==========================================
@@ -107,7 +88,6 @@ class AuthService {
         avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${cleanEmail}`,
         role: 'Standard Member',
         authProvider: 'email',
-        isPhoneVerified: false,
         createdAt: new Date().toISOString(),
       };
       users.push(user);
@@ -154,7 +134,6 @@ class AuthService {
         fullName: cleanName,
         email: cleanEmail,
         password: signupData.password,
-        phoneNumber: signupData.phone,
       });
 
       if (res.data && res.data.token && res.data.user) {
@@ -185,11 +164,9 @@ class AuthService {
       id: `66${Date.now().toString(16).padStart(22, '0').slice(-22)}`,
       name: cleanName,
       email: cleanEmail,
-      phone: signupData.phone || undefined,
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${cleanEmail}`,
       role: 'Standard Member',
       authProvider: 'email',
-      isPhoneVerified: false,
       createdAt: new Date().toISOString(),
     };
 
@@ -201,187 +178,6 @@ class AuthService {
     localStorage.setItem(STORAGE_KEYS.TOKEN, token);
 
     return { user: newUser, token, expiresIn: 86400 * 7 };
-  }
-
-  // ==========================================
-  // GOOGLE OAUTH AUTHENTICATION (REAL FLOW)
-  // ==========================================
-  async signInWithGoogle(googlePayload?: GoogleAuthPayload): Promise<AuthResponse> {
-    try {
-      // 1. If payload is passed, send directly to backend
-      let body: GoogleAuthPayload = googlePayload || {};
-
-      // If no payload passed, prompt user or use existing identity
-      if (!body.email && !body.credential) {
-        const promptEmail = window.prompt("Enter your Google Account email to continue with Google:", "");
-        if (!promptEmail || !promptEmail.trim() || !promptEmail.includes("@")) {
-          throw new Error("Google sign-in was cancelled or invalid email was entered.");
-        }
-        const cleanEmail = promptEmail.trim().toLowerCase();
-        const promptName = cleanEmail.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-        body = {
-          email: cleanEmail,
-          name: promptName,
-          picture: `https://api.dicebear.com/7.x/avataaars/svg?seed=${cleanEmail}`,
-          googleId: `goog_${Date.now()}`,
-        };
-      }
-
-      const res = await apiClient.post<{ success: boolean; token: string; user: User }>('/auth/google', body);
-
-      if (res.data && res.data.token && res.data.user) {
-        const user = res.data.user;
-        const token = res.data.token;
-
-        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
-        localStorage.setItem(STORAGE_KEYS.TOKEN, token);
-
-        return { user, token, expiresIn: 86400 * 7 };
-      }
-    } catch (apiErr: any) {
-      if (apiErr.response?.data?.message) {
-        throw new Error(apiErr.response.data.message);
-      }
-      if (apiErr.message && !apiErr.message.includes("Network Error")) {
-        throw apiErr;
-      }
-      console.warn("Backend Google auth offline fallback:", apiErr.message);
-    }
-
-    // Offline fallback if server is unreachable
-    const targetEmail = (googlePayload?.email || "user@gmail.com").toLowerCase().trim();
-    const targetName = googlePayload?.name || targetEmail.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-    const targetPicture = googlePayload?.picture || `https://api.dicebear.com/7.x/avataaars/svg?seed=${targetEmail}`;
-
-    const users = this.getStoredUsers();
-    let user = users.find((u) => u.email.toLowerCase() === targetEmail);
-
-    if (!user) {
-      user = {
-        id: `66${Date.now().toString(16).padStart(22, '0').slice(-22)}`,
-        name: targetName,
-        email: targetEmail,
-        avatar: targetPicture,
-        role: 'Standard Member',
-        authProvider: 'google',
-        isPhoneVerified: false,
-        createdAt: new Date().toISOString(),
-      };
-      users.push(user);
-      this.saveStoredUsers(users);
-    } else {
-      user.name = targetName || user.name;
-      user.avatar = targetPicture || user.avatar;
-      user.authProvider = 'google';
-    }
-
-    const token = `wm_jwt_google_${btoa(user.id)}_${Date.now()}`;
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
-    localStorage.setItem(STORAGE_KEYS.TOKEN, token);
-
-    return { user, token, expiresIn: 86400 * 7 };
-  }
-
-  // ==========================================
-  // PHONE OTP AUTHENTICATION (REAL SMS VIA TWILIO VERIFY)
-  // ==========================================
-  async sendPhoneOtp(
-    phone: string,
-    countryCode = '+91',
-    purpose: 'login' | 'signup' | 'password-reset' = 'login',
-    tempUserData?: Partial<SignupData>
-  ): Promise<OtpSession> {
-    const cleanDigits = phone.replace(/\D/g, '');
-    if (cleanDigits.length < 7 || cleanDigits.length > 15) {
-      throw new Error('Please enter a valid mobile number.');
-    }
-
-    const fullPhone = `${countryCode}${cleanDigits}`;
-    const fallbackMasked = this.maskPhoneNumber(countryCode, cleanDigits);
-
-    // Call backend API to trigger real SMS OTP via Twilio Verify
-    try {
-      const res = await apiClient.post<{
-        success: boolean;
-        message: string;
-        data?: { phone: string; maskedPhone: string; expiresInSeconds: number };
-      }>('/auth/send-otp', {
-        phone: cleanDigits,
-        countryCode,
-        purpose,
-      });
-
-      const expiresInSeconds = res.data?.data?.expiresInSeconds || 600;
-      const expiresAt = Date.now() + expiresInSeconds * 1000;
-      const maskedPhone = res.data?.data?.maskedPhone || fallbackMasked;
-
-      const session: OtpSession = {
-        phone: fullPhone,
-        countryCode,
-        purpose,
-        maskedPhone,
-        expiresAt,
-        tempUserData,
-      };
-
-      sessionStorage.setItem(STORAGE_KEYS.OTP_SESSION, JSON.stringify(session));
-      return session;
-    } catch (err: any) {
-      if (err.response?.data?.message) {
-        throw new Error(err.response.data.message);
-      }
-      throw new Error(err.message || 'Failed to send SMS verification code. Please check your backend connection.');
-    }
-  }
-
-  async verifyPhoneOtp(
-    phone: string,
-    otp: string,
-    purpose: 'login' | 'signup' | 'password-reset' = 'login',
-    tempUserData?: Partial<SignupData>
-  ): Promise<AuthResponse | { verified: true }> {
-    if (otp.length !== 6 || !/^\d{6}$/.test(otp)) {
-      throw new Error('Please enter the complete 6-digit verification code.');
-    }
-
-    try {
-      // Call backend API to verify code with Twilio Verify
-      const res = await apiClient.post<{
-        success: boolean;
-        message?: string;
-        token: string;
-        user: User;
-        verified?: boolean;
-      }>('/auth/verify-otp', {
-        phone,
-        otp,
-        name: tempUserData?.name,
-        email: tempUserData?.email,
-        purpose,
-      });
-
-      if (purpose === 'password-reset') {
-        return { verified: true };
-      }
-
-      if (res.data && res.data.token && res.data.user) {
-        const user = res.data.user;
-        const token = res.data.token;
-
-        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
-        localStorage.setItem(STORAGE_KEYS.TOKEN, token);
-        sessionStorage.removeItem(STORAGE_KEYS.OTP_SESSION);
-
-        return { user, token };
-      }
-
-      throw new Error(res.data?.message || 'Verification failed. Please check the code and try again.');
-    } catch (err: any) {
-      if (err.response?.data?.message) {
-        throw new Error(err.response.data.message);
-      }
-      throw new Error(err.message || 'Failed to verify the SMS code. Please try again.');
-    }
   }
 
   // ==========================================
@@ -399,14 +195,16 @@ class AuthService {
     };
   }
 
-  async resetPassword(identifier: string, newPassword: string): Promise<{ success: boolean }> {
+  async resetPassword(email: string, newPassword: string): Promise<{ success: boolean }> {
     if (!newPassword || newPassword.length < 8) {
       throw new Error('Password must be at least 8 characters long.');
     }
 
+    const cleanEmail = email.trim().toLowerCase();
+
     try {
       await apiClient.post('/auth/reset-password', {
-        identifier,
+        email: cleanEmail,
         newPassword,
       });
       return { success: true };
@@ -415,72 +213,13 @@ class AuthService {
     }
 
     const users = this.getStoredUsers();
-    const user = users.find(
-      (u) => u.email.toLowerCase() === identifier.toLowerCase() || u.phone === identifier
-    );
+    const user = users.find((u) => u.email.toLowerCase() === cleanEmail);
 
     if (user) {
       this.saveStoredUsers(users);
     }
 
     return { success: true };
-  }
-
-  // ==========================================
-  // PASSKEY / WEBAUTHN SIMULATION & INTEGRATION
-  // ==========================================
-  async signInWithPasskey(): Promise<AuthResponse> {
-    const current = this.getCurrentUser();
-    const email = current?.email || "biometric.user@walletmate.io";
-    const name = current?.name || "Authenticated Passkey User";
-
-    const passkeyUser: User = {
-      id: current?.id || `66${Date.now().toString(16).padStart(22, '0').slice(-22)}`,
-      name,
-      email,
-      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${email}`,
-      role: 'Enterprise Member',
-      authProvider: 'passkey',
-      isPhoneVerified: true,
-      createdAt: new Date().toISOString(),
-    };
-
-    const token = `wm_jwt_passkey_${Date.now()}`;
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(passkeyUser));
-    localStorage.setItem(STORAGE_KEYS.TOKEN, token);
-
-    return { user: passkeyUser, token };
-  }
-
-  // ==========================================
-  // ENTERPRISE SSO
-  // ==========================================
-  async signInWithSSO(workEmailOrDomain: string): Promise<AuthResponse> {
-    const domain = workEmailOrDomain.includes('@')
-      ? workEmailOrDomain.split('@')[1]
-      : workEmailOrDomain;
-
-    if (!domain || !domain.includes('.')) {
-      throw new Error('Please enter a valid work email or corporate domain (e.g. acme.com).');
-    }
-
-    const companyName = domain.split('.')[0].toUpperCase();
-    const ssoUser: User = {
-      id: `66${Date.now().toString(16).padStart(22, '0').slice(-22)}`,
-      name: `${companyName} Corporate User`,
-      email: workEmailOrDomain.includes('@') ? workEmailOrDomain : `employee@${domain}`,
-      avatar: `https://api.dicebear.com/7.x/shapes/svg?seed=${domain}`,
-      role: `${companyName} Enterprise`,
-      authProvider: 'sso',
-      isPhoneVerified: true,
-      createdAt: new Date().toISOString(),
-    };
-
-    const token = `wm_jwt_sso_${Date.now()}`;
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(ssoUser));
-    localStorage.setItem(STORAGE_KEYS.TOKEN, token);
-
-    return { user: ssoUser, token };
   }
 
   // ==========================================
@@ -508,7 +247,6 @@ class AuthService {
     localStorage.removeItem(STORAGE_KEYS.REMEMBER);
     sessionStorage.removeItem(STORAGE_KEYS.USER);
     sessionStorage.removeItem(STORAGE_KEYS.TOKEN);
-    sessionStorage.removeItem(STORAGE_KEYS.OTP_SESSION);
   }
 }
 

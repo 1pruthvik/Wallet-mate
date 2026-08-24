@@ -31,6 +31,7 @@ export const AuthNavbar: React.FC = () => {
     { label: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={16} /> },
     { label: 'Transactions', path: '/transactions', icon: <ReceiptText size={16} /> },
     { label: 'Health Engine', path: '/financial-health', icon: <Activity size={16} /> },
+    { label: 'Learning', path: '/learning', icon: <GraduationCap size={16} /> },
     { label: 'AI Mentor', path: '/mentor', icon: <Sparkles size={16} /> },
     { label: 'Trading', path: '/trading', icon: <TrendingUp size={16} /> },
   ];
@@ -85,7 +86,7 @@ export const AuthNavbar: React.FC = () => {
             )}
             <div className="wm-user-meta">
               <span className="wm-user-name">{user?.name || 'User'}</span>
-              <span className="wm-user-role">{user?.authProvider === 'google' ? 'Google Account' : (user?.role || 'Member')}</span>
+              <span className="wm-user-role">{user?.role || 'Member'}</span>
             </div>
           </Link>
 
@@ -134,15 +135,6 @@ export const AuthNavbar: React.FC = () => {
               <span>{link.label}</span>
             </Link>
           ))}
-
-          <Link
-            to="/learning"
-            onClick={() => setMobileMenuOpen(false)}
-            className={`wm-auth-mobile-link ${location.pathname === '/learning' ? 'active' : ''}`}
-          >
-            <GraduationCap size={18} />
-            <span>Learning Modules</span>
-          </Link>
 
           <Link
             to="/profile"

@@ -70,7 +70,6 @@ const authMiddleware = async (req, res, next) => {
                 : new mongoose.Types.ObjectId("660000000000000000000001"),
             email: decoded.email || "user@walletmate.io",
             fullName: decoded.name || decoded.fullName || "Wallet-Mate User",
-            phoneNumber: decoded.phoneNumber || decoded.phone,
             role: decoded.role || "Standard Member",
         };
 

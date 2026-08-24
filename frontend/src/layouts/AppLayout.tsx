@@ -1,5 +1,4 @@
 import { Outlet } from "react-router-dom";
-import Sidebar from "../components/Sidebar";
 import AuthNavbar from "../components/AuthNavbar";
 import AuthFooter from "../components/AuthFooter";
 
@@ -9,17 +8,13 @@ function AppLayout() {
             {/* Top Workspace Navbar */}
             <AuthNavbar />
 
-            {/* Main Workspace Layout */}
-            <div className="wm-app-body">
-                <Sidebar />
+            {/* Full-Width Workspace Layout */}
+            <div className="wm-workspace-main">
+                <main className="wm-page-container">
+                    <Outlet />
+                </main>
 
-                <div className="wm-workspace-main">
-                    <main className="wm-page-container">
-                        <Outlet />
-                    </main>
-
-                    <AuthFooter />
-                </div>
+                <AuthFooter />
             </div>
         </div>
     );

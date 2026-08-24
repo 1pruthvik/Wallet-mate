@@ -70,9 +70,10 @@ app.use((err, req, res, next) => {
     });
 });
 
-/*
- * Start server
- */
-app.listen(PORT, () => {
-    console.log(`Wallet-Mate API running on http://localhost:${PORT}`);
-});
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`Wallet-Mate API running on http://localhost:${PORT}`);
+    });
+}
+
+module.exports = app;
