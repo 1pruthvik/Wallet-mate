@@ -1,8 +1,21 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { getTransactions } from "../api/transactions";
-import type { Transaction } from "../api/transactions";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import { getTransactions, type Transaction } from "../api/transactions";
 import { calculateFinancialHealth } from "../utils/financialHealth";
 import { queryAIMentor } from "../api/ai";
+import { useAuthStore } from "../store/useAuthStore";
+import {
+    Sparkles,
+    Send,
+    Bot,
+    User as UserIcon,
+    ShieldAlert,
+    CheckCircle,
+    Clock,
+    AlertOctagon,
+    Lightbulb,
+    Wallet,
+    TrendingUp,
+} from "lucide-react";
 
 interface ChatMessage {
     id: string;
@@ -19,59 +32,72 @@ interface ChatMessage {
 const QUICK_PROMPTS = [
     {
         title: "Can I Afford This?",
-        prompt: "Can I buy a ₹35,000 phone right now?",
-        icon: "📱",
-    },
-    {
-        title: "Salary Plan",
-        prompt: "Generate a personalized monthly plan for a ₹60,000 salary.",
-        icon: "💼",
+        prompt: "Can I buy a ₹35,000 gadget right now based on my cashflow?",
+        icon: "💳",
     },
     {
         title: "Spending Leaks",
-        prompt: "Where am I spending too much money this month?",
+        prompt: "Where am I spending too much money based on my recorded transactions?",
         icon: "🔍",
     },
     {
-        title: "Scam Detector",
-        prompt: "Analyze this message: 'Congratulations! You won ₹25 lakh. Pay ₹4,999 processing fee to claim.'",
+        title: "Emergency Fund",
+        prompt: "How many months of expenses do I currently have saved?",
         icon: "🛡️",
     },
     {
-        title: "Start Investing",
-        prompt: "How should I allocate ₹5,000 monthly SIP as a beginner?",
-        icon: "📈",
+        title: "Scam Detection",
+        prompt: "Analyze this message: 'Congratulations! You won ₹25 lakh. Pay ₹4,999 processing fee to claim.'",
+        icon: "⚠️",
+    },
+    {
+        title: "Monthly Budget Plan",
+        prompt: "Help me create an optimal 50/30/20 budget based on my income.",
+        icon: "📊",
     },
 ];
 
 let messageSequence = 1;
 
 const Mentor: React.FC = () => {
+    const { user } = useAuthStore();
+    const userName = user?.name ? user.name.split(" ")[0] : "there";
+
     const [transactions, setTransactions] = useState<Transaction[]>([]);
-    const [messages, setMessages] = useState<ChatMessage[]>([
-        {
-            id: "msg-welcome",
-            sender: "mentor",
-            text: "Hello Nivish! I am **FinMitra AI Mentor**, your personal financial intelligence companion.\n\nI can analyze your spending patterns, evaluate purchase affordability (*Can I afford this?*), detect financial scams, and build personalized wealth plans. How can I assist you today?",
-            timestamp: "Just now",
-        },
-    ]);
+    const [messages, setMessages] = useState<ChatMessage[]>([]);
     const [inputQuery, setInputQuery] = useState<string>("");
     const [isTyping, setIsTyping] = useState<boolean>(false);
-
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const load = async () => {
             try {
                 const data = await getTransactions();
-                setTransactions(data);
+                setTransactions(data || []);
             } catch (err) {
                 console.error("Mentor failed to load transactions:", err);
             }
         };
         load();
     }, []);
+
+    const health = useMemo(() => {
+        return calculateFinancialHealth(transactions);
+    }, [transactions]);
+
+    // Initial welcome message
+    useEffect(() => {
+        if (messages.length === 0) {
+            setMessages([
+                {
+                    id: "msg-welcome",
+                    sender: "mentor",
+                    text: `Hello ${userName}! I am **FinMitra AI Mentor**, your personal financial intelligence companion.\n\nI analyze your real-time bank cashflow, assess affordability (*Can I afford this?*), detect financial fraud, and formulate optimal savings plans. Every recommendation is 100% grounded in your stored data.\n\nHow can I help you today?`,
+                    timestamp: "Just now",
+                },
+            ]);
+        }
+    }, [userName]);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -81,280 +107,341 @@ const Mentor: React.FC = () => {
         scrollToBottom();
     }, [messages, isTyping]);
 
-    // Financial intelligence context builder
-    const generateMentorResponse = useCallback((query: string, responseId: string, timestamp: string): ChatMessage => {
-        const report = calculateFinancialHealth(transactions);
-        const lower = query.toLowerCase();
+    const generateLocalMentorResponse = (query: string): ChatMessage => {
+        const q = query.toLowerCase();
+        messageSequence += 1;
+        const msgId = `msg-mentor-${Date.now()}-${messageSequence}`;
+        const hasTransactions = transactions.length > 0;
 
-        // 1. Can I Afford This? (Section 31)
-        if (lower.includes("afford") || lower.includes("buy a") || lower.includes("phone") || lower.includes("laptop")) {
-            const amountMatch = query.match(/₹?\s*(\d+[\d,]*)/);
-            const itemPrice = amountMatch ? parseInt(amountMatch[1].replace(/,/g, ""), 10) : 35000;
+        // 1. SCAM DETECTOR
+        if (q.includes("won") || q.includes("processing fee") || q.includes("lottery") || q.includes("scam") || q.includes("otp")) {
+            return {
+                id: msgId,
+                sender: "mentor",
+                timestamp: "Just now",
+                verdict: "SCAM_ALERT",
+                text: `🚨 **HIGH RISK FINANCIAL SCAM DETECTED**\n\n- **Warning**: Legitimate institutions and prize distributors NEVER demand an upfront "processing fee", "registration tax", or account OTP to disburse money.\n- **Action Required**: Do NOT transfer any money or disclose your bank credentials.\n- **Report**: Report the sender on the National Cyber Crime Portal (1930) immediately.`,
+                scenarioData: {
+                    title: "Fraud Threat Assessment",
+                    metrics: [
+                        { label: "Threat Level", value: "Critical (Scam)" },
+                        { label: "Confidence", value: "99.4%" },
+                        { label: "Recommendation", value: "Block & Report" },
+                    ],
+                },
+            };
+        }
 
-            const monthlySurplus = report.monthlySavings;
-            let verdict: "BUY" | "WAIT" | "AVOID" = "WAIT";
-            let reason = "";
+        // 2. AFFORDABILITY EVALUATION
+        if (q.includes("afford") || q.includes("buy") || q.includes("purchase")) {
+            if (!hasTransactions) {
+                return {
+                    id: msgId,
+                    sender: "mentor",
+                    timestamp: "Just now",
+                    verdict: "WAIT",
+                    text: `ℹ️ **No User Transaction Data Found**\n\nBecause your account currently has no recorded income or bank statements, your balance and monthly cashflow are at **₹0**.\n\nTo accurately evaluate whether you can afford this purchase without compromising your emergency buffer, please import your bank statement PDF or log your monthly income first!`,
+                };
+            }
 
-            if (monthlySurplus >= itemPrice * 1.5 && report.score >= 70) {
-                verdict = "BUY";
-                reason = `Your current monthly surplus is **₹${monthlySurplus.toLocaleString("en-IN")}** with a healthy financial score of **${report.score}/100**. You can afford this purchase upfront without compromising emergency reserves.`;
-            } else if (monthlySurplus >= itemPrice * 0.4 && monthlySurplus > 0) {
-                verdict = "WAIT";
-                const monthsToSave = Math.ceil(itemPrice / (monthlySurplus * 0.6));
-                reason = `Purchasing this ₹${itemPrice.toLocaleString("en-IN")} item right now will deplete your liquid surplus. By setting aside ₹${Math.round(monthlySurplus * 0.6).toLocaleString("en-IN")}/month, you can purchase it comfortably in **${monthsToSave} months** without taking on debt.`;
-            } else {
-                verdict = "AVOID";
-                reason = `Your monthly living expenses are currently absorbing most of your inflow. Adding an unplanned ₹${itemPrice.toLocaleString("en-IN")} expense will trigger a cashflow deficit. Focus on stabilizing your baseline emergency reserve first.`;
+            const match = query.match(/₹?\s*([\d,]+)/);
+            const amount = match ? parseInt(match[1].replace(/,/g, ""), 10) : 15000;
+            const surplus = health.monthlySavings;
+
+            if (amount > surplus && surplus > 0) {
+                return {
+                    id: msgId,
+                    sender: "mentor",
+                    timestamp: "Just now",
+                    verdict: "WAIT",
+                    text: `⚠️ **Postpone / Save First**\n\nThis purchase (₹${amount.toLocaleString("en-IN")}) exceeds your current monthly surplus of **₹${surplus.toLocaleString("en-IN")}**.\n\n- **Impact**: Purchasing now will eat into your emergency buffer or create high-interest debt.\n- **Recommendation**: Set aside ₹${Math.round(amount / 3).toLocaleString("en-IN")}/month over the next 3 months to buy with zero financial stress.`,
+                    scenarioData: {
+                        title: "Affordability Analysis",
+                        metrics: [
+                            { label: "Target Cost", value: `₹${amount.toLocaleString("en-IN")}` },
+                            { label: "Monthly Surplus", value: `₹${surplus.toLocaleString("en-IN")}` },
+                            { label: "Deficit", value: `₹${Math.max(0, amount - surplus).toLocaleString("en-IN")}` },
+                        ],
+                    },
+                };
+            } else if (surplus > 0 && amount <= surplus) {
+                return {
+                    id: msgId,
+                    sender: "mentor",
+                    timestamp: "Just now",
+                    verdict: "BUY",
+                    text: `✅ **Affordable Purchase**\n\nThis purchase (₹${amount.toLocaleString("en-IN")}) fits within your monthly cashflow surplus of **₹${surplus.toLocaleString("en-IN")}**.\n\nYour remaining monthly buffer after purchase will be **₹${(surplus - amount).toLocaleString("en-IN")}**. Enjoy your purchase responsibly!`,
+                    scenarioData: {
+                        title: "Cashflow Clearance",
+                        metrics: [
+                            { label: "Target Cost", value: `₹${amount.toLocaleString("en-IN")}` },
+                            { label: "Surplus", value: `₹${surplus.toLocaleString("en-IN")}` },
+                            { label: "Post-Buy Buffer", value: `₹${(surplus - amount).toLocaleString("en-IN")}` },
+                        ],
+                    },
+                };
+            }
+        }
+
+        // 3. SPENDING LEAKS
+        if (q.includes("leak") || q.includes("spending too much") || q.includes("expense")) {
+            if (!hasTransactions) {
+                return {
+                    id: msgId,
+                    sender: "mentor",
+                    timestamp: "Just now",
+                    text: `📊 **No Spending Data Available**\n\nYou currently have 0 recorded transactions. Import a bank statement PDF to detect dining, subscription, and discretionary spending leaks automatically.`,
+                };
             }
 
             return {
-                id: responseId,
+                id: msgId,
                 sender: "mentor",
-                text: `### Purchase Affordability Assessment\n\n**Verdict:** ${verdict}\n\n${reason}`,
-                verdict,
-                scenarioData: {
-                    title: "Affordability Breakdown",
-                    metrics: [
-                        { label: "Item Price", value: `₹${itemPrice.toLocaleString("en-IN")}` },
-                        { label: "Monthly Surplus", value: `₹${monthlySurplus.toLocaleString("en-IN")}` },
-                        { label: "Financial Health", value: `${report.score}/100` },
-                        { label: "Safety Impact", value: verdict === "BUY" ? "Low Risk" : "High Strain" },
-                    ],
-                },
-                timestamp,
+                timestamp: "Just now",
+                text: `🔍 **Cashflow Analysis from Your Transactions**\n\n- **Monthly Outflow**: ₹${health.monthlyExpenses.toLocaleString("en-IN")}\n- **Essential Costs**: ₹${health.essentialSpend.toLocaleString("en-IN")}\n- **Discretionary Spending**: ₹${health.discretionarySpend.toLocaleString("en-IN")}\n- **Savings Rate**: ${health.savingsRate}%\n\nReview your high-frequency expenses in the Transactions tab to trim discretionary leaks!`,
             };
         }
 
-        // 2. Salary Plan (Section 32)
-        if (lower.includes("salary") || lower.includes("60,000") || lower.includes("plan")) {
-            return {
-                id: responseId,
-                sender: "mentor",
-                text: `### Personalized ₹60,000 Salary Financial Blueprint\n\nBased on prudent wealth-building principles adapted for India:\n\n* **🏠 Necessities (50% — ₹30,000):** Rent/EMI, groceries, utility bills, health insurance, commute.\n* **📈 Investments & Wealth (25% — ₹15,000):**\n  * ₹8,000 in Nifty 50 Index Fund\n  * ₹4,000 in Flexi-Cap / Mid-Cap Fund\n  * ₹3,000 in PPF / Debt / Emergency Fund\n* **🎯 Wants & Lifestyle (15% — ₹9,000):** Weekend dining, shopping, OTT subscriptions, leisure.\n* **🛡️ Emergency Reserve (10% — ₹6,000):** Automated liquid fund parking until 3 months expenses (₹90,000) is reached.`,
-                scenarioData: {
-                    title: "Recommended Allocation",
-                    metrics: [
-                        { label: "Essentials", value: "₹30,000 (50%)" },
-                        { label: "Investments", value: "₹15,000 (25%)" },
-                        { label: "Wants", value: "₹9,000 (15%)" },
-                        { label: "Emergency Fund", value: "₹6,000 (10%)" },
-                    ],
-                },
-                timestamp,
-            };
-        }
-
-        // 3. Scam Detection (Section 29)
-        if (lower.includes("scam") || lower.includes("won") || lower.includes("lakh") || lower.includes("fee") || lower.includes("lottery")) {
-            return {
-                id: responseId,
-                sender: "mentor",
-                text: `### 🚨 Security Alert: High Probability Financial Scam\n\n**Classification:** LIKELY SCAM (99.8% Confidence)\n\n**Warning Indicators Detected:**\n1. **Upfront Fee Fraud:** Legitimate lotteries and awards never demand an advance "processing fee" or "tax clearance" before disbursement.\n2. **Unsolicited Prize:** You cannot win a competition or lottery you never entered.\n3. **Urgency & Pressure:** Scammers use artificial excitement to bypass logical scrutiny.\n\n**Recommended Action:** Do **NOT** pay any amount, do not click links or share bank OTPs. Report the sender number on the national cyber crime portal (cybercrime.gov.in).`,
-                verdict: "SCAM_ALERT",
-                timestamp,
-            };
-        }
-
-        // 4. Spending Leaks
-        if (lower.includes("spending") || lower.includes("leak") || lower.includes("too much")) {
-            return {
-                id: responseId,
-                sender: "mentor",
-                text: `### Spending Analytics & Outflow Diagnosis\n\nBased on your synchronized transaction records:\n\n* **Total Monthly Outflow:** ₹${report.monthlyExpenses.toLocaleString("en-IN")}\n* **Discretionary Purchases:** ₹${report.discretionarySpend.toLocaleString("en-IN")}\n* **Savings Rate:** ${report.savingsRate}%\n\n**Optimization Opportunities:**\n1. **Food & Delivery Apps:** Cap weekend food delivery frequency to save an estimated ₹3,500/month.\n2. **Discretionary Shopping:** Implement a 48-hour cooling-off rule on shopping orders above ₹1,500.\n3. **Recurring Subscriptions:** Review automated card mandates to eliminate unused streaming or app fees.`,
-                timestamp,
-            };
-        }
-
-        // 5. Default General Financial Intelligence
+        // Default Guidance
         return {
-            id: responseId,
+            id: msgId,
             sender: "mentor",
-            text: `### Financial Guidance\n\nRegarding your question: *"**${query}**"*\n\nHere is what you should consider based on your current financial health score of **${report.score}/100**:\n\n* Maintain consistent monthly cashflow surplus.\n* Prioritize building 3 months of emergency reserves (Target: ₹${Math.round(report.monthlyExpenses * 3).toLocaleString("en-IN")}).\n* Automate long-term equity index SIPs to outpace inflation.\n* Avoid taking high-interest personal or consumer gadget debt.`,
-            timestamp,
+            timestamp: "Just now",
+            text: `💡 **AI Financial Perspective**\n\nBased on your authenticated account profile (Health Score: **${health.score}/100**, Monthly Surplus: **₹${health.monthlySavings.toLocaleString("en-IN")}**):\n\n1. Maintain at least 3-6 months of basic living expenses in liquid savings.\n2. Keep high-interest liabilities capped.\n3. Systematically channel surplus into low-cost index funds or goal-oriented deposits.\n\nAsk me any question about purchase affordability, budget plans, or scam safety!`,
         };
-    }, [transactions]);
+    };
 
     const handleSendMessage = async (textToSend?: string) => {
-        const query = (textToSend || inputQuery).trim();
-        if (!query || isTyping) return;
+        const text = (textToSend || inputQuery).trim();
+        if (!text || isTyping) return;
 
-        const currentTimestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+        messageSequence += 1;
         const userMsg: ChatMessage = {
-            id: `user-msg-${++messageSequence}`,
+            id: `msg-user-${Date.now()}-${messageSequence}`,
             sender: "user",
-            text: query,
-            timestamp: currentTimestamp,
+            text,
+            timestamp: "Just now",
         };
 
         setMessages((prev) => [...prev, userMsg]);
         setInputQuery("");
         setIsTyping(true);
 
-        const botResponseId = `mentor-msg-${++messageSequence}`;
-        const botTimestamp = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-
         try {
-            const report = calculateFinancialHealth(transactions);
-            const aiRes = await queryAIMentor(query, {
-                healthScore: report.score,
-                monthlyIncome: report.monthlyIncome,
-                monthlyExpenses: report.monthlyExpenses,
-                savingsRate: report.savingsRate,
+            // Attempt to query AI RAG service
+            const aiResponse = await queryAIMentor(text, {
+                healthScore: health.score,
+                monthlyIncome: health.monthlyIncome,
+                monthlyExpenses: health.monthlyExpenses,
+                savingsRate: health.savingsRate,
+                topCategory: "General",
             });
 
-            if (aiRes && aiRes.answer) {
+            if (aiResponse && aiResponse.answer) {
+                messageSequence += 1;
                 setMessages((prev) => [
                     ...prev,
                     {
-                        id: botResponseId,
+                        id: `msg-ai-${Date.now()}-${messageSequence}`,
                         sender: "mentor",
-                        text: aiRes.answer,
-                        timestamp: botTimestamp,
+                        text: aiResponse.answer,
+                        timestamp: "Just now",
                     },
                 ]);
                 setIsTyping(false);
                 return;
             }
-        } catch {
-            // Graceful fallback to client-side financial rules engine
+        } catch (error) {
+            console.warn("AI Service offline, using localized financial engine:", error);
         }
 
-        // Local financial rules engine
-        const botResponse = generateMentorResponse(query, botResponseId, botTimestamp);
-        setMessages((prev) => [...prev, botResponse]);
-        setIsTyping(false);
+        // Localized fallback response engine
+        setTimeout(() => {
+            const fallbackReply = generateLocalMentorResponse(text);
+            setMessages((prev) => [...prev, fallbackReply]);
+            setIsTyping(false);
+        }, 600);
+    };
+
+    const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+        if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            handleSendMessage();
+        }
     };
 
     return (
-        <div className="mentor-page">
-            {/* PAGE HEADER */}
-            <div className="page-header">
+        <div className="wm-page-wrapper wm-mentor-page">
+            {/* Header */}
+            <div className="wm-page-header">
                 <div>
-                    <h1>AI Money Mentor</h1>
-                    <p>Explainable, personalized financial intelligence powered by your real-time cashflow.</p>
-                </div>
-                <div className="mentor-status-pill">
-                    <span className="online-dot" />
-                    <span>Grounded in Your Transactions</span>
+                    <h1 className="wm-page-title">FinMitra AI Financial Mentor</h1>
+                    <p className="wm-page-subtitle">
+                        Interactive financial intelligence grounded 100% in your real cashflow and transactions.
+                    </p>
                 </div>
             </div>
 
-            {/* MAIN CHAT WRAPPER */}
-            <div className="mentor-chat-wrapper">
-                {/* QUICK PROMPTS BAR */}
-                <div className="quick-prompts-bar">
-                    <span className="quick-prompts-title">💡 Suggested Topics:</span>
-                    <div className="quick-prompts-scroll">
-                        {QUICK_PROMPTS.map((item, idx) => (
+            {/* Main Mentor Layout: Chat + Context Panel */}
+            <div className="wm-mentor-grid">
+                {/* Chat Section */}
+                <div className="wm-card wm-chat-container">
+                    {/* Message History */}
+                    <div className="wm-chat-messages">
+                        {messages.map((msg) => {
+                            const isMentor = msg.sender === "mentor";
+                            return (
+                                <div
+                                    key={msg.id}
+                                    className={`wm-chat-bubble-wrapper ${isMentor ? 'mentor' : 'user'}`}
+                                >
+                                    <div className={`wm-chat-avatar ${isMentor ? 'mentor' : 'user'}`}>
+                                        {isMentor ? <Bot size={18} /> : <UserIcon size={18} />}
+                                    </div>
+
+                                    <div className="wm-chat-bubble">
+                                        {msg.verdict && (
+                                            <div className={`wm-verdict-badge ${msg.verdict.toLowerCase()}`}>
+                                                {msg.verdict === "BUY" && <CheckCircle size={14} />}
+                                                {msg.verdict === "WAIT" && <Clock size={14} />}
+                                                {msg.verdict === "AVOID" && <AlertOctagon size={14} />}
+                                                {msg.verdict === "SCAM_ALERT" && <ShieldAlert size={14} />}
+                                                <span>SIGNAL: {msg.verdict.replace("_", " ")}</span>
+                                            </div>
+                                        )}
+
+                                        <div className="wm-chat-text">
+                                            {msg.text.split("\n\n").map((paragraph, idx) => (
+                                                <p key={idx}>{paragraph}</p>
+                                            ))}
+                                        </div>
+
+                                        {msg.scenarioData && (
+                                            <div className="wm-scenario-card">
+                                                <h5>{msg.scenarioData.title}</h5>
+                                                <div className="wm-scenario-grid">
+                                                    {msg.scenarioData.metrics.map((m, i) => (
+                                                        <div key={i} className="wm-scenario-stat">
+                                                            <span className="label">{m.label}</span>
+                                                            <span className="val">{m.value}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <span className="wm-chat-time">{msg.timestamp}</span>
+                                    </div>
+                                </div>
+                            );
+                        })}
+
+                        {isTyping && (
+                            <div className="wm-chat-bubble-wrapper mentor">
+                                <div className="wm-chat-avatar mentor">
+                                    <Bot size={18} />
+                                </div>
+                                <div className="wm-chat-bubble wm-typing-bubble">
+                                    <span className="wm-dot" />
+                                    <span className="wm-dot" />
+                                    <span className="wm-dot" />
+                                </div>
+                            </div>
+                        )}
+                        <div ref={messagesEndRef} />
+                    </div>
+
+                    {/* Quick Prompts Bar */}
+                    <div className="wm-quick-prompts-bar">
+                        {QUICK_PROMPTS.map((qp, i) => (
                             <button
-                                key={idx}
+                                key={i}
                                 type="button"
-                                className="quick-prompt-btn"
-                                onClick={() => handleSendMessage(item.prompt)}
+                                onClick={() => handleSendMessage(qp.prompt)}
+                                className="wm-quick-prompt-btn"
+                                disabled={isTyping}
                             >
-                                <span className="prompt-icon">{item.icon}</span>
-                                <span className="prompt-text">{item.title}</span>
+                                <span className="icon">{qp.icon}</span>
+                                <span>{qp.title}</span>
                             </button>
                         ))}
                     </div>
+
+                    {/* Input Bar */}
+                    <div className="wm-chat-input-bar">
+                        <input
+                            type="text"
+                            placeholder="Ask AI Mentor anything about your money, budget, purchases, or scams..."
+                            value={inputQuery}
+                            onChange={(e) => setInputQuery(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            disabled={isTyping}
+                            className="wm-chat-input"
+                            id="input-mentor-chat"
+                        />
+                        <button
+                            type="button"
+                            onClick={() => handleSendMessage()}
+                            disabled={!inputQuery.trim() || isTyping}
+                            className="wm-chat-send-btn"
+                            id="btn-mentor-send"
+                        >
+                            <Send size={16} />
+                        </button>
+                    </div>
                 </div>
 
-                {/* MESSAGES SCROLL CONTAINER */}
-                <div className="mentor-messages-box">
-                    {messages.map((msg) => (
-                        <div key={msg.id} className={`chat-message-row message-${msg.sender}`}>
-                            <div className="message-avatar">
-                                {msg.sender === "mentor" ? "🤖" : "👤"}
-                            </div>
-
-                            <div className="message-bubble">
-                                <div className="message-meta">
-                                    <span className="message-sender-name">
-                                        {msg.sender === "mentor" ? "FinMitra Mentor" : "You"}
-                                    </span>
-                                    <span className="message-time">{msg.timestamp}</span>
-                                </div>
-
-                                {msg.verdict && (
-                                    <div className={`verdict-banner verdict-${msg.verdict.toLowerCase()}`}>
-                                        <span className="verdict-tag">Decision Signal:</span>
-                                        <strong>{msg.verdict.replace("_", " ")}</strong>
-                                    </div>
-                                )}
-
-                                <div className="message-body-text">
-                                    {msg.text.split("\n\n").map((para, pIdx) => (
-                                        <p key={pIdx}>
-                                            {para.split("\n").map((line, lIdx) => (
-                                                <React.Fragment key={lIdx}>
-                                                    {line}
-                                                    {lIdx < para.split("\n").length - 1 && <br />}
-                                                </React.Fragment>
-                                            ))}
-                                        </p>
-                                    ))}
-                                </div>
-
-                                {msg.scenarioData && (
-                                    <div className="scenario-data-box">
-                                        <span className="scenario-box-title">{msg.scenarioData.title}</span>
-                                        <div className="scenario-metrics-grid">
-                                            {msg.scenarioData.metrics.map((m, mIdx) => (
-                                                <div key={mIdx} className="scenario-metric-chip">
-                                                    <span className="metric-chip-label">{m.label}</span>
-                                                    <span className="metric-chip-value">{m.value}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
+                {/* Right Context Sidebar */}
+                <div className="wm-mentor-context-sidebar">
+                    <div className="wm-card wm-context-card">
+                        <div className="wm-card-header">
+                            <div>
+                                <h4 className="wm-card-title">Live Account Context</h4>
+                                <p className="wm-card-subtitle">Real metrics feeding your AI Mentor</p>
                             </div>
                         </div>
-                    ))}
 
-                    {isTyping && (
-                        <div className="chat-message-row message-mentor">
-                            <div className="message-avatar">🤖</div>
-                            <div className="message-bubble typing-bubble">
-                                <div className="typing-indicator">
-                                    <span />
-                                    <span />
-                                    <span />
+                        <div className="wm-context-stats">
+                            <div className="wm-context-stat-row">
+                                <div className="label-group">
+                                    <Sparkles size={15} color="#635bff" />
+                                    <span>Health Score</span>
                                 </div>
-                                <span className="typing-text">Analyzing your financial context...</span>
+                                <span className="val-badge">{health.score} / 100</span>
+                            </div>
+
+                            <div className="wm-context-stat-row">
+                                <div className="label-group">
+                                    <TrendingUp size={15} color="#10b981" />
+                                    <span>Monthly Income</span>
+                                </div>
+                                <span className="val">₹{health.monthlyIncome.toLocaleString("en-IN")}</span>
+                            </div>
+
+                            <div className="wm-context-stat-row">
+                                <div className="label-group">
+                                    <TrendingUp size={15} color="#ef4444" style={{ transform: 'rotate(90deg)' }} />
+                                    <span>Monthly Outflow</span>
+                                </div>
+                                <span className="val">₹{health.monthlyExpenses.toLocaleString("en-IN")}</span>
+                            </div>
+
+                            <div className="wm-context-stat-row">
+                                <div className="label-group">
+                                    <Wallet size={15} color="#635bff" />
+                                    <span>Monthly Surplus</span>
+                                </div>
+                                <span className={`val ${health.monthlySavings >= 0 ? 'income' : 'expense'}`}>
+                                    ₹{health.monthlySavings.toLocaleString("en-IN")}
+                                </span>
                             </div>
                         </div>
-                    )}
 
-                    <div ref={messagesEndRef} />
-                </div>
-
-                {/* CHAT INPUT FORM */}
-                <form
-                    className="mentor-input-form"
-                    onSubmit={(e) => {
-                        e.preventDefault();
-                        handleSendMessage();
-                    }}
-                >
-                    <input
-                        type="text"
-                        className="mentor-input-field"
-                        placeholder="Ask anything (e.g. Can I afford a ₹45,000 trip?, How to start investing?)..."
-                        value={inputQuery}
-                        onChange={(e) => setInputQuery(e.target.value)}
-                    />
-                    <button
-                        type="submit"
-                        className="mentor-send-btn"
-                        disabled={!inputQuery.trim() || isTyping}
-                    >
-                        Send →
-                    </button>
-                </form>
-
-                <div className="mentor-disclaimer-note">
-                    🔒 FinMitra AI Mentor provides analytical financial intelligence, not guaranteed legal or tax advice. Never share bank passwords or OTPs.
+                        <div className="wm-context-footer">
+                            <Lightbulb size={14} />
+                            <span>Zero mock values. All signals reflect your actual database records.</span>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

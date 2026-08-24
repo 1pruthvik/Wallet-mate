@@ -1,16 +1,20 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { Link } from "react-router-dom";
-import { getTransactions } from "../api/transactions";
-import type { Transaction } from "../api/transactions";
+import { getTransactions, type Transaction } from "../api/transactions";
 import { calculateFinancialHealth } from "../utils/financialHealth";
 import BankStatementModal from "../components/BankStatementModal";
+import {
+    Activity,
+    FileUp,
+    AlertTriangle,
+    CheckCircle2,
+    Sparkles,
+} from "lucide-react";
 
 const FinancialHealth: React.FC = () => {
     const [transactions, setTransactions] = useState<Transaction[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [error, setError] = useState<string>("");
     const [showStatementModal, setShowStatementModal] = useState<boolean>(false);
-    const [successMessage, setSuccessMessage] = useState<string>("");
 
     useEffect(() => {
         const load = async () => {
@@ -18,10 +22,10 @@ const FinancialHealth: React.FC = () => {
                 setLoading(true);
                 setError("");
                 const data = await getTransactions();
-                setTransactions(data);
+                setTransactions(data || []);
             } catch (err: any) {
                 console.error("Failed to load financial health transactions:", err);
-                setError("Unable to load financial health data. Please make sure the backend is running.");
+                setError("Unable to load transactions to calculate health metrics.");
             } finally {
                 setLoading(false);
             }
@@ -34,192 +38,222 @@ const FinancialHealth: React.FC = () => {
         return calculateFinancialHealth(transactions);
     }, [transactions]);
 
+    const isFreshUser = transactions.length === 0;
+
     const getScoreColor = (score: number) => {
-        if (score >= 80) return "#16845b"; // emerald
-        if (score >= 65) return "#2563eb"; // blue
-        if (score >= 45) return "#d97706"; // amber
-        return "#dc2626"; // coral
+        if (score >= 80) return "#10b981"; // emerald
+        if (score >= 60) return "#635bff"; // primary violet
+        if (score >= 40) return "#f59e0b"; // amber
+        if (score > 0) return "#ef4444";   // rose
+        return "#94a3b8";                  // subtle slate for 0
     };
 
-    const getScoreGradient = (score: number) => {
-        const primaryColor = getScoreColor(score);
-        const deg = Math.round((score / 100) * 360);
-        return `conic-gradient(${primaryColor} 0deg ${deg}deg, #e2ece7 ${deg}deg 360deg)`;
-    };
+    const scoreColor = getScoreColor(report.score);
+    const deg = Math.round((report.score / 100) * 360);
+    const gaugeGradient = `conic-gradient(${scoreColor} 0deg ${deg}deg, #f1f5f9 ${deg}deg 360deg)`;
 
     if (loading) {
         return (
-            <div className="financial-health-page">
-                <div className="page-header">
-                    <div>
-                        <h1>Financial Health</h1>
-                        <p>Analyzing your financial vitals and stability metrics...</p>
-                    </div>
+            <div className="wm-page-wrapper">
+                <div className="wm-page-header">
+                    <div className="wm-skeleton" style={{ width: "280px", height: "32px", marginBottom: "8px" }} />
+                    <div className="wm-skeleton" style={{ width: "420px", height: "18px" }} />
                 </div>
+                <div className="wm-skeleton-card" style={{ height: "260px" }} />
             </div>
         );
     }
 
     return (
-        <div className="financial-health-page">
-            {/* PAGE HEADER */}
-            <div className="page-header">
+        <div className="wm-page-wrapper">
+            {/* Header */}
+            <div className="wm-page-header">
                 <div>
-                    <h1>Financial Health Intelligence</h1>
-                    <p>Comprehensive diagnostics of your cashflow discipline, savings stamina, and risk buffer.</p>
+                    <h1 className="wm-page-title">Financial Health Engine</h1>
+                    <p className="wm-page-subtitle">
+                        Algorithmic evaluation of your cashflow discipline, savings stamina, and risk buffer.
+                    </p>
                 </div>
-                <div className="page-header-actions">
+
+                <div className="wm-header-actions">
                     <button
                         type="button"
-                        className="import-statement-button"
                         onClick={() => setShowStatementModal(true)}
+                        className="wm-btn-primary"
+                        id="btn-health-import"
                     >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ marginRight: "6px" }}>
-                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                            <polyline points="14 2 14 8 20 8" />
-                            <path d="M12 18v-6" />
-                            <path d="m9 15 3-3 3 3" />
-                        </svg>
-                        Import Statement
+                        <FileUp size={16} />
+                        <span>Import Bank Statement</span>
                     </button>
-                    <Link to="/transactions" className="add-transaction-button" style={{ textDecoration: "none", display: "inline-flex", alignItems: "center" }}>
-                        View Transactions →
-                    </Link>
                 </div>
             </div>
 
-            {/* ALERTS */}
-            {successMessage && <div className="form-success-banner" style={{ marginBottom: "20px" }}>{successMessage}</div>}
-            {error && <div className="form-error" style={{ marginBottom: "20px" }}>{error}</div>}
+            {/* Error Banner */}
+            {error && (
+                <div className="wm-alert wm-alert-error" style={{ marginBottom: "24px" }}>
+                    <span>{error}</span>
+                </div>
+            )}
 
-            {/* HERO SCORE CARD */}
-            <div className="health-hero-card">
-                <div className="health-hero-main">
-                    <div className="health-hero-text">
-                        <div className="health-badge-row">
-                            <span className="health-status-badge" style={{ backgroundColor: `${getScoreColor(report.score)}18`, color: getScoreColor(report.score) }}>
-                                {report.grade} Standing
+            {/* Health Hero Score Card */}
+            <div className="wm-health-hero-card">
+                <div className="wm-health-hero-left">
+                    <div className="wm-health-hero-tag">
+                        <Activity size={15} />
+                        <span>Real-Time Diagnostic Score • {report.grade}</span>
+                    </div>
+                    <h2 className="wm-health-hero-title">
+                        {isFreshUser
+                            ? "Awaiting User Data"
+                            : report.score >= 80
+                            ? "Optimal Financial Health"
+                            : report.score >= 60
+                            ? "Stable Cashflow Foundation"
+                            : report.score >= 40
+                            ? "Moderate Financial Strain"
+                            : "High Outflow Velocity"}
+                    </h2>
+                    <p className="wm-health-hero-verdict">{report.verdict}</p>
+
+                    {/* Vitals Summary Pill Bar */}
+                    <div className="wm-vitals-pills">
+                        <div className="wm-vital-pill">
+                            <span className="vital-label">Monthly Surplus</span>
+                            <span className={`vital-val ${report.monthlySavings >= 0 ? 'income' : 'expense'}`}>
+                                ₹{report.monthlySavings.toLocaleString("en-IN")}
                             </span>
-                            <span className="health-period-tag">Updated Real-Time</span>
                         </div>
-                        <h2>{report.grade} Financial Health</h2>
-                        <p className="health-verdict">{report.verdict}</p>
-                        <div className="health-kpi-row">
-                            <div className="health-kpi-item">
-                                <span className="kpi-label">Savings Rate</span>
-                                <span className="kpi-val income-val">{report.savingsRate}%</span>
-                            </div>
-                            <div className="health-kpi-item">
-                                <span className="kpi-label">Monthly Surplus</span>
-                                <span className="kpi-val income-val">+₹{report.monthlySavings.toLocaleString("en-IN")}</span>
-                            </div>
-                            <div className="health-kpi-item">
-                                <span className="kpi-label">Monthly Burn</span>
-                                <span className="kpi-val expense-val">₹{report.monthlyExpenses.toLocaleString("en-IN")}</span>
-                            </div>
+                        <div className="wm-vital-pill">
+                            <span className="vital-label">Savings Rate</span>
+                            <span className="vital-val">{report.savingsRate}%</span>
+                        </div>
+                        <div className="wm-vital-pill">
+                            <span className="vital-label">Active Txns</span>
+                            <span className="vital-val">{transactions.length}</span>
                         </div>
                     </div>
+                </div>
 
-                    <div className="health-gauge-container">
-                        <div className="health-gauge-dial" style={{ background: getScoreGradient(report.score) }}>
-                            <div className="health-gauge-inner">
-                                <span className="health-gauge-number" style={{ color: getScoreColor(report.score) }}>
-                                    {report.score}
+                <div className="wm-health-hero-gauge-wrapper">
+                    <div className="wm-health-big-gauge" style={{ background: gaugeGradient }}>
+                        <div className="wm-health-big-gauge-inner">
+                            <span className="score-num" style={{ color: scoreColor }}>{report.score}</span>
+                            <span className="score-denom">/ 100</span>
+                            <span className="score-grade-badge">{report.grade}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* 4 Health Pillars Grid */}
+            <div className="wm-section-header">
+                <div>
+                    <h3 className="wm-section-title">The 4 Financial Health Pillars</h3>
+                    <p className="wm-section-subtitle">Multi-dimensional breakdown of your spending habits and capital efficiency</p>
+                </div>
+            </div>
+
+            <div className="wm-pillars-grid">
+                {report.pillars.map((pillar) => {
+                    const pct = pillar.maxScore > 0 ? Math.round((pillar.score / pillar.maxScore) * 100) : 0;
+                    return (
+                        <div key={pillar.id} className="wm-pillar-card">
+                            <div className="wm-pillar-header">
+                                <div>
+                                    <h4 className="wm-pillar-title">{pillar.title}</h4>
+                                    <p className="wm-pillar-desc">{pillar.description}</p>
+                                </div>
+                                <div className="wm-pillar-score-box">
+                                    <span className="score-got">{pillar.score}</span>
+                                    <span className="score-max">/{pillar.maxScore}</span>
+                                </div>
+                            </div>
+
+                            <div className="wm-pillar-progress-track">
+                                <div
+                                    className="wm-pillar-progress-fill"
+                                    style={{
+                                        width: `${pct}%`,
+                                        backgroundColor: pct >= 70 ? '#10b981' : pct >= 40 ? '#635bff' : pct > 0 ? '#f59e0b' : '#cbd5e1',
+                                    }}
+                                />
+                            </div>
+
+                            <div className="wm-pillar-footer">
+                                <span className={`wm-pillar-status-tag ${pillar.status}`}>
+                                    {isFreshUser ? "Awaiting Data" : `${pct}% Efficiency`}
                                 </span>
-                                <span className="health-gauge-scale">/ 100</span>
                             </div>
                         </div>
-                        <span className="health-gauge-caption">Overall Health Score</span>
-                    </div>
-                </div>
+                    );
+                })}
             </div>
 
-            {/* 4 PILLARS DIAGNOSTICS GRID */}
-            <div className="health-section-heading">
-                <h2>Health Pillars Diagnostics</h2>
-                <p>Granular breakdown across the 4 foundational pillars of personal finance</p>
-            </div>
-
-            <div className="health-pillars-grid">
-                {report.pillars.map((pillar) => (
-                    <div key={pillar.id} className="pillar-card">
-                        <div className="pillar-header">
-                            <span className="pillar-title">{pillar.title}</span>
-                            <span className="pillar-score-tag">
-                                {pillar.score} / {pillar.maxScore} pts
-                            </span>
-                        </div>
-                        <div className="pillar-progress-track">
-                            <div
-                                className="pillar-progress-fill"
-                                style={{
-                                    width: `${pillar.percentage}%`,
-                                    backgroundColor: pillar.percentage >= 70 ? "var(--primary)" : pillar.percentage >= 50 ? "#2563eb" : "#d97706",
-                                }}
-                            />
-                        </div>
-                        <div className="pillar-footer">
-                            <span className="pillar-desc">{pillar.description}</span>
-                            <span className="pillar-pct">{pillar.percentage}%</span>
+            {/* Insights & Recommendations Grid */}
+            <div className="wm-insights-rec-grid">
+                {/* Insights Panel */}
+                <div className="wm-card wm-insights-card">
+                    <div className="wm-card-header">
+                        <div>
+                            <h3 className="wm-card-title">Diagnostic Insights</h3>
+                            <p className="wm-card-subtitle">Automated detections based on your transactions</p>
                         </div>
                     </div>
-                ))}
-            </div>
 
-            {/* TWO COLUMN SECTION: ACTIONABLE CHECKS & RECOMMENDATIONS */}
-            <div className="health-details-grid">
-                {/* CHECKLIST & SIGNALS */}
-                <div className="health-checklist-card">
-                    <div className="card-inner-header">
-                        <h3>Vitals & Signal Checks</h3>
-                        <span>{report.insights.length} active findings</span>
-                    </div>
-
-                    <div className="checklist-items">
-                        {report.insights.map((item, idx) => (
-                            <div key={idx} className={`checklist-item item-${item.type}`}>
-                                <div className="checklist-icon-bubble">
-                                    {item.type === "positive" ? "✓" : item.type === "warning" ? "⚠" : "ℹ"}
+                    <div className="wm-insights-list">
+                        {report.insights.map((insight, idx) => (
+                            <div key={idx} className={`wm-insight-item ${insight.type}`}>
+                                <div className="wm-insight-icon">
+                                    {insight.type === 'positive' ? (
+                                        <CheckCircle2 size={18} />
+                                    ) : insight.type === 'warning' ? (
+                                        <AlertTriangle size={18} />
+                                    ) : (
+                                        <Sparkles size={18} />
+                                    )}
                                 </div>
-                                <div className="checklist-content">
-                                    <h4>{item.title}</h4>
-                                    <p>{item.message}</p>
+                                <div className="wm-insight-content">
+                                    <h5 className="wm-insight-title">{insight.title}</h5>
+                                    <p className="wm-insight-msg">{insight.message}</p>
                                 </div>
                             </div>
                         ))}
                     </div>
                 </div>
 
-                {/* SMART RECOMMENDATIONS */}
-                <div className="health-recommendations-card">
-                    <div className="card-inner-header">
-                        <h3>Smart Action Plan</h3>
-                        <span>Optimized for you</span>
+                {/* Recommendations Panel */}
+                <div className="wm-card wm-recs-card">
+                    <div className="wm-card-header">
+                        <div>
+                            <h3 className="wm-card-title">Priority Action Plan</h3>
+                            <p className="wm-card-subtitle">Recommended steps to elevate your financial health</p>
+                        </div>
                     </div>
 
-                    <div className="recommendations-list">
+                    <div className="wm-recs-list">
                         {report.recommendations.map((rec) => (
-                            <div key={rec.id} className="rec-item">
-                                <div className="rec-top-row">
-                                    <span className="rec-category-badge">{rec.category}</span>
-                                    <span className="rec-impact-badge">{rec.impact}</span>
+                            <div key={rec.id} className="wm-rec-item">
+                                <div className="wm-rec-header">
+                                    <h5 className="wm-rec-title">{rec.title}</h5>
+                                    <span className="wm-rec-impact-pill">{rec.impact}</span>
                                 </div>
-                                <h4>{rec.title}</h4>
-                                <p>{rec.action}</p>
+                                <p className="wm-rec-action">{rec.action}</p>
+                                <div className="wm-rec-footer">
+                                    <span className="wm-rec-cat">Category: {rec.category}</span>
+                                    <span className="wm-rec-diff">Difficulty: {rec.difficulty}</span>
+                                </div>
                             </div>
                         ))}
                     </div>
                 </div>
             </div>
 
-            {/* STATEMENT MODAL */}
+            {/* Modal: Bank Statement Import */}
             <BankStatementModal
                 isOpen={showStatementModal}
                 onClose={() => setShowStatementModal(false)}
-                onImportSuccess={(imported) => {
-                    setTransactions((prev) => [...imported, ...prev]);
-                    setSuccessMessage(`Successfully imported ${imported.length} transactions. Financial health recalculated!`);
-                    setTimeout(() => setSuccessMessage(""), 6000);
+                onImportSuccess={(newTxs) => {
+                    setTransactions((prev) => [...newTxs, ...prev]);
                 }}
             />
         </div>

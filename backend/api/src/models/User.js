@@ -7,54 +7,39 @@ const userSchema = new mongoose.Schema(
             type: String,
             required: [true, "Full name is required"],
             trim: true,
-            default: "FinMitra User",
+            minlength: [2, "Name must be at least 2 characters"],
+            maxlength: [100, "Name cannot exceed 100 characters"],
         },
+
         email: {
             type: String,
             required: [true, "Email address is required"],
             unique: true,
             lowercase: true,
             trim: true,
+            match: [
+                /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+                "Please provide a valid email address",
+            ],
             index: true,
         },
-        phoneNumber: {
-            type: String,
-            trim: true,
-            sparse: true,
-            index: true,
-        },
+
         passwordHash: {
             type: String,
-            select: false,
+            select: false, // Never return password hash in regular queries
         },
+
         authProvider: {
             type: String,
-            enum: ["email", "phone", "google", "passkey", "sso"],
+            enum: ["email"],
             default: "email",
         },
+
         isEmailVerified: {
             type: Boolean,
             default: false,
         },
-        isPhoneVerified: {
-            type: Boolean,
-            default: false,
-        },
-        consent_version: {
-            type: String,
-            default: "1.0",
-        },
-        data_permissions: {
-            gmail_read: { type: Boolean, default: false },
-            sms_read: { type: Boolean, default: false },
-            csv_import: { type: Boolean, default: true },
-            manual_input: { type: Boolean, default: true },
-        },
-        status: {
-            type: String,
-            enum: ["active", "suspended", "pending"],
-            default: "active",
-        },
+
         profile: {
             avatar: {
                 type: String,
@@ -64,11 +49,31 @@ const userSchema = new mongoose.Schema(
                 type: String,
                 default: "INR",
             },
+            timezone: {
+                type: String,
+                default: "Asia/Kolkata",
+            },
             role: {
                 type: String,
                 default: "Standard Member",
             },
         },
+
+        preferences: {
+            currency: {
+                type: String,
+                default: "INR",
+            },
+            notifications: {
+                type: Boolean,
+                default: true,
+            },
+            darkMode: {
+                type: Boolean,
+                default: false,
+            },
+        },
+
         lastLoginAt: {
             type: Date,
             default: Date.now,
@@ -76,18 +81,20 @@ const userSchema = new mongoose.Schema(
     },
     {
         timestamps: true,
+        collection: "users",
     }
 );
 
-userSchema.statics.hashPassword = async function (password) {
-    const salt = await bcrypt.genSalt(10);
-    return bcrypt.hash(password, salt);
-};
-
+// Method to compare candidate password against hashed password
 userSchema.methods.comparePassword = async function (candidatePassword) {
     if (!this.passwordHash) return false;
     return bcrypt.compare(candidatePassword, this.passwordHash);
 };
 
-const User = mongoose.models.User || mongoose.model("User", userSchema);
-module.exports = User;
+// Static helper to hash password securely
+userSchema.statics.hashPassword = async function (plainPassword) {
+    const salt = await bcrypt.genSalt(10);
+    return bcrypt.hash(plainPassword, salt);
+};
+
+module.exports = mongoose.model("User", userSchema);

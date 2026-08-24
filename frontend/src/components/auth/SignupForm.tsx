@@ -1,20 +1,17 @@
 import React, { useState } from 'react';
-import { AlertCircle, Loader2, Smartphone } from 'lucide-react';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import PasswordInput from './PasswordInput';
 import PasswordRequirements, { isPasswordValid } from './PasswordRequirements';
-import AuthDivider from './AuthDivider';
 import { useAuthStore } from '../../store/useAuthStore';
 import type { SignupData } from '../../types/auth';
 
 interface SignupFormProps {
   onSwitchToLogin: () => void;
-  onSwitchToPhoneSignup: () => void;
-  onSuccess: (signupData: SignupData) => void;
+  onSuccess: () => void;
 }
 
 export const SignupForm: React.FC<SignupFormProps> = ({
   onSwitchToLogin,
-  onSwitchToPhoneSignup,
   onSuccess,
 }) => {
   const [name, setName] = useState('');
@@ -28,7 +25,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({
     confirmPassword?: string;
   }>({});
 
-  const { isLoading, error, clearError } = useAuthStore();
+  const { signup, isLoading, error, clearError } = useAuthStore();
 
   const validateForm = () => {
     const errors: {
@@ -80,7 +77,12 @@ export const SignupForm: React.FC<SignupFormProps> = ({
       password,
     };
 
-    onSuccess(data);
+    try {
+      await signup(data);
+      onSuccess();
+    } catch {
+      // Error handled in store
+    }
   };
 
   return (
@@ -211,21 +213,6 @@ export const SignupForm: React.FC<SignupFormProps> = ({
           ) : (
             <span>Create account</span>
           )}
-        </button>
-
-        <AuthDivider text="Or sign up with" />
-
-        <button
-          type="button"
-          className="wm-alt-btn"
-          onClick={onSwitchToPhoneSignup}
-          disabled={isLoading}
-          id="btn-signup-phone"
-        >
-          <span className="wm-alt-btn-icon">
-            <Smartphone size={17} color="#425466" />
-          </span>
-          <span>Sign up with Phone</span>
         </button>
       </form>
 

@@ -4,6 +4,7 @@ const authMiddleware = require("../middleware/authMiddleware");
 const {
     getTransactions,
     getTransactionById,
+    getTransactionSummary,
     createTransaction,
     updateTransaction,
     deleteTransaction,
@@ -46,6 +47,11 @@ router.use(authMiddleware);
  * GET /api/transactions
  */
 router.get("/", getTransactions);
+
+/*
+ * GET /api/transactions/summary
+ */
+router.get("/summary", getTransactionSummary);
 
 /*
  * GET /api/transactions/:id

@@ -1,26 +1,51 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import {
+    FileUp,
+    FileText,
+    X,
+    Trash2,
+    CheckCircle2,
+    AlertCircle,
+    ShieldCheck,
+    ArrowUpRight,
+    ArrowDownRight,
+    Sparkles,
+    RefreshCw,
+    Check,
+} from "lucide-react";
 import { parseBankStatement, importBatchTransactions } from "../api/transactions";
 import type { Transaction } from "../api/transactions";
+import "./BankStatementModal.css";
 
 interface BankStatementModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onImportSuccess: (imported: Transaction[]) => void;
+    onImportSuccess: (
+        imported: Transaction[],
+        summary?: { newCount: number; duplicateCount: number; total: number; message: string }
+    ) => void;
 }
 
 type ModalStep = "idle" | "processing" | "preview" | "error";
 
 const CATEGORIES = [
     "Income",
+    "Salary",
+    "Freelance",
+    "Investment",
     "Food",
+    "Dining",
     "Shopping",
     "Transport",
-    "Entertainment",
     "Bills",
+    "Utilities",
+    "Entertainment",
+    "Health",
+    "Education",
     "Other",
 ];
 
-const BankStatementModal: React.FC<BankStatementModalProps> = ({
+export const BankStatementModal: React.FC<BankStatementModalProps> = ({
     isOpen,
     onClose,
     onImportSuccess,
@@ -28,6 +53,8 @@ const BankStatementModal: React.FC<BankStatementModalProps> = ({
     const [step, setStep] = useState<ModalStep>("idle");
     const [processingStep, setProcessingStep] = useState<number>(1);
     const [fileName, setFileName] = useState<string>("");
+    const [fileSizeStr, setFileSizeStr] = useState<string>("");
+    const [pagesCount, setPagesCount] = useState<number>(1);
     const [extractedList, setExtractedList] = useState<Omit<Transaction, "_id">[]>([]);
     const [errorMessage, setErrorMessage] = useState<string>("");
     const [isImporting, setIsImporting] = useState<boolean>(false);
@@ -35,32 +62,56 @@ const BankStatementModal: React.FC<BankStatementModalProps> = ({
 
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    if (!isOpen) return null;
-
+    // Reset modal state
     const resetModal = () => {
         setStep("idle");
         setProcessingStep(1);
         setFileName("");
+        setFileSizeStr("");
+        setPagesCount(1);
         setExtractedList([]);
         setErrorMessage("");
         setIsImporting(false);
         setIsDragOver(false);
     };
 
+    // Close handler
     const handleClose = () => {
         if (isImporting) return;
         resetModal();
         onClose();
     };
 
+    // Keyboard accessibility: ESC key to close
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape" && isOpen && !isImporting) {
+                handleClose();
+            }
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [isOpen, isImporting]);
+
+    if (!isOpen) return null;
+
+    const formatFileSize = (bytes: number): string => {
+        if (bytes < 1024) return `${bytes} B`;
+        if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+        return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+    };
+
     const handleFileSelect = async (file: File) => {
         if (!file) return;
 
         const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
-        const isCsv = file.type === "text/csv" || file.name.toLowerCase().endsWith(".csv") || file.name.toLowerCase().endsWith(".txt");
+        const isCsv =
+            file.type === "text/csv" ||
+            file.name.toLowerCase().endsWith(".csv") ||
+            file.name.toLowerCase().endsWith(".txt");
 
         if (!isPdf && !isCsv) {
-            setErrorMessage("Please upload a valid PDF or CSV bank statement.");
+            setErrorMessage("Please upload a valid digital PDF or CSV bank statement.");
             setStep("error");
             return;
         }
@@ -72,13 +123,14 @@ const BankStatementModal: React.FC<BankStatementModalProps> = ({
         }
 
         setFileName(file.name);
+        setFileSizeStr(formatFileSize(file.size));
         setStep("processing");
         setProcessingStep(1);
         setErrorMessage("");
 
-        // Multi-stage progress indicators
-        const timer1 = setTimeout(() => setProcessingStep(2), 700);
-        const timer2 = setTimeout(() => setProcessingStep(3), 1400);
+        // Multi-stage visual progress indicators
+        const timer1 = setTimeout(() => setProcessingStep(2), 500);
+        const timer2 = setTimeout(() => setProcessingStep(3), 1000);
 
         try {
             const result = await parseBankStatement(file);
@@ -87,18 +139,24 @@ const BankStatementModal: React.FC<BankStatementModalProps> = ({
             clearTimeout(timer2);
 
             if (!result.transactions || result.transactions.length === 0) {
-                setErrorMessage("No readable transactions were found in this statement. Please check the file format.");
+                setErrorMessage(
+                    "No readable transactions were found in this statement. Please make sure the PDF contains digital text tables."
+                );
                 setStep("error");
                 return;
             }
 
             setExtractedList(result.transactions);
+            setPagesCount(result.pagesProcessed || 1);
             setStep("preview");
         } catch (err: any) {
             clearTimeout(timer1);
             clearTimeout(timer2);
             console.error("Statement upload error:", err);
-            const msg = err.response?.data?.message || err.message || "Unable to process the bank statement. Please try again.";
+            const msg =
+                err.response?.data?.message ||
+                err.message ||
+                "Unable to process the bank statement. Please make sure you uploaded a valid digital PDF and try again.";
             setErrorMessage(msg);
             setStep("error");
         }
@@ -125,7 +183,11 @@ const BankStatementModal: React.FC<BankStatementModalProps> = ({
         setExtractedList((prev) => {
             const updated = [...prev];
             const item = updated[index];
-            const isIncome = newCategory === "Income";
+            const isIncome =
+                newCategory === "Income" ||
+                newCategory === "Salary" ||
+                newCategory === "Freelance" ||
+                newCategory === "Investment";
             updated[index] = {
                 ...item,
                 category: newCategory,
@@ -145,8 +207,13 @@ const BankStatementModal: React.FC<BankStatementModalProps> = ({
         try {
             setIsImporting(true);
             setErrorMessage("");
-            const imported = await importBatchTransactions(extractedList, fileName);
-            onImportSuccess(imported.transactions);
+            const result = await importBatchTransactions(extractedList, fileName);
+            onImportSuccess(result.transactions, {
+                newCount: result.count,
+                duplicateCount: result.duplicatesSkipped,
+                total: result.totalExtracted,
+                message: result.message,
+            });
             handleClose();
         } catch (err: any) {
             console.error("Batch import error:", err);
@@ -177,36 +244,55 @@ const BankStatementModal: React.FC<BankStatementModalProps> = ({
         });
     };
 
+    const sanitizeDisplayNarration = (desc?: string, merchant?: string): string => {
+        if (!desc) return "";
+        const m = (merchant || "").toLowerCase().trim();
+        let clean = desc
+            .replace(/[-+]\s*[$€₹£]\s*[$€₹£]?/g, "")
+            .replace(/[$€₹£]/g, "")
+            .replace(/\b(?:dr|cr|inr|rs\.?)\b/gi, "")
+            .replace(/\s{2,}/g, " ")
+            .trim();
+
+        if (!clean || clean.toLowerCase() === m) return "";
+        if (m && clean.toLowerCase().startsWith(m)) {
+            clean = clean.slice(m.length).replace(/^[-/:\s]+/, "").trim();
+        }
+        return clean;
+    };
+
     return (
-        <div className="statement-modal-overlay" onClick={handleClose}>
+        <div className="bsm-backdrop" onClick={handleClose}>
             <div
-                className={`statement-modal-container ${step === "preview" ? "statement-modal-wide" : ""}`}
+                className={`bsm-dialog ${step === "preview" ? "bsm-dialog-wide" : ""}`}
                 onClick={(e) => e.stopPropagation()}
             >
-                {/* MODAL HEADER */}
-                <div className="statement-modal-header">
-                    <div>
-                        <h2>Import Bank Statement</h2>
-                        <p>Upload your PDF or CSV bank statement to auto-extract transactions</p>
+                {/* 1. MODAL HEADER */}
+                <div className="bsm-header">
+                    <div className="bsm-header-info">
+                        <h3 className="bsm-title">Import Bank Statement</h3>
+                        <p className="bsm-subtitle">
+                            Upload a digital PDF bank statement to automatically extract and verify your transactions.
+                        </p>
                     </div>
                     <button
                         type="button"
-                        className="modal-close-btn"
+                        className="bsm-close-btn"
                         onClick={handleClose}
                         disabled={isImporting}
-                        aria-label="Close"
+                        aria-label="Close dialog"
                     >
-                        ×
+                        <X size={18} />
                     </button>
                 </div>
 
-                {/* MODAL BODY */}
-                <div className="statement-modal-body">
-                    {/* IDLE STATE: DROPZONE */}
+                {/* 2. MODAL BODY */}
+                <div className="bsm-body">
+                    {/* STEP 1: IDLE DROPZONE */}
                     {step === "idle" && (
-                        <div className="statement-upload-section">
+                        <div className="bsm-upload-section">
                             <div
-                                className={`statement-dropzone ${isDragOver ? "dropzone-active" : ""}`}
+                                className={`bsm-dropzone ${isDragOver ? "bsm-dropzone-active" : ""}`}
                                 onDrop={onDrop}
                                 onDragOver={onDragOver}
                                 onDragLeave={onDragLeave}
@@ -216,7 +302,7 @@ const BankStatementModal: React.FC<BankStatementModalProps> = ({
                                     type="file"
                                     ref={fileInputRef}
                                     style={{ display: "none" }}
-                                    accept=".pdf,.csv,.txt,application/pdf"
+                                    accept=".pdf,application/pdf,.csv,.txt"
                                     onChange={(e) => {
                                         if (e.target.files && e.target.files[0]) {
                                             handleFileSelect(e.target.files[0]);
@@ -224,185 +310,255 @@ const BankStatementModal: React.FC<BankStatementModalProps> = ({
                                     }}
                                 />
 
-                                <div className="dropzone-icon-wrapper">
-                                    <svg
-                                        width="44"
-                                        height="44"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="1.8"
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                    >
-                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                        <polyline points="14 2 14 8 20 8" />
-                                        <path d="M12 18v-6" />
-                                        <path d="m9 15 3-3 3 3" />
-                                    </svg>
+                                <div className="bsm-icon-circle">
+                                    <FileUp size={28} />
                                 </div>
 
-                                <div className="dropzone-text">
-                                    <h3>Upload Bank Statement</h3>
-                                    <p>Drag & drop your PDF statement here, or <span className="browse-link">browse files</span></p>
-                                    <span className="file-hints">Supported: PDF & CSV (HDFC, SBI, ICICI, Axis, Kotak, etc.) • Max 15MB</span>
+                                <div className="bsm-dropzone-text">
+                                    <h4 className="bsm-dropzone-title">Upload Bank Statement PDF</h4>
+                                    <p className="bsm-dropzone-desc">
+                                        Drag & drop your PDF statement here, or <span className="bsm-browse-link">browse files</span>
+                                    </p>
+                                    <span className="bsm-dropzone-hint">
+                                        PDF & CSV files supported • Multi-page statement support • Max 15MB
+                                    </span>
                                 </div>
 
                                 <button
                                     type="button"
-                                    className="choose-pdf-btn"
+                                    className="bsm-choose-btn"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         fileInputRef.current?.click();
                                     }}
                                 >
-                                    Choose PDF
+                                    <FileText size={16} />
+                                    <span>Choose PDF File</span>
                                 </button>
                             </div>
 
-                            <div className="statement-privacy-note">
-                                <span className="lock-icon">🔒</span>
-                                <span>Your financial statements are parsed securely in-memory. Data is never shared or stored until you verify and click Import.</span>
+                            {/* Trust & Privacy Notice */}
+                            <div className="bsm-trust-badge">
+                                <ShieldCheck size={18} className="bsm-trust-icon" />
+                                <span>
+                                    Bank-grade processing: Statements are processed securely in memory and transactions are saved only after your review.
+                                </span>
                             </div>
                         </div>
                     )}
 
-                    {/* PROCESSING STATE */}
+                    {/* STEP 2: PROCESSING */}
                     {step === "processing" && (
-                        <div className="statement-processing-view">
-                            <div className="processing-spinner-wrapper">
-                                <div className="processing-pulse-ring" />
-                                <div className="processing-icon">
-                                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                                        <polyline points="14 2 14 8 20 8" />
-                                        <line x1="16" y1="13" x2="8" y2="13" />
-                                        <line x1="16" y1="17" x2="8" y2="17" />
-                                    </svg>
+                        <div className="bsm-processing-section">
+                            <div className="bsm-pulse-spinner-box">
+                                <div className="bsm-pulse-ring" />
+                                <div className="bsm-pulse-icon">
+                                    <Sparkles size={24} />
                                 </div>
                             </div>
 
-                            <h3>Analyzing Statement: {fileName}</h3>
+                            <h4 className="bsm-processing-title">Processing Bank Statement...</h4>
+                            <p className="bsm-processing-file">{fileName} ({fileSizeStr})</p>
 
-                            <div className="processing-stepper">
-                                <div className={`step-item ${processingStep >= 1 ? "step-active" : ""}`}>
-                                    <div className="step-dot">{processingStep > 1 ? "✓" : "1"}</div>
-                                    <span>Uploading statement</span>
+                            <div className="bsm-stepper">
+                                <div className={`bsm-step-node ${processingStep >= 1 ? "bsm-step-done" : ""}`}>
+                                    <div className="bsm-step-badge">
+                                        {processingStep > 1 ? <Check size={14} /> : 1}
+                                    </div>
+                                    <span className="bsm-step-label">Reading PDF document</span>
                                 </div>
-                                <div className={`step-line ${processingStep >= 2 ? "line-active" : ""}`} />
-                                <div className={`step-item ${processingStep >= 2 ? "step-active" : ""}`}>
-                                    <div className="step-dot">{processingStep > 2 ? "✓" : "2"}</div>
-                                    <span>Processing text structure</span>
+                                <div className={`bsm-step-line ${processingStep >= 2 ? "bsm-step-line-done" : ""}`} />
+                                <div className={`bsm-step-node ${processingStep >= 2 ? "bsm-step-done" : ""}`}>
+                                    <div className="bsm-step-badge">
+                                        {processingStep > 2 ? <Check size={14} /> : 2}
+                                    </div>
+                                    <span className="bsm-step-label">Parsing multi-page tables</span>
                                 </div>
-                                <div className={`step-line ${processingStep >= 3 ? "line-active" : ""}`} />
-                                <div className={`step-item ${processingStep >= 3 ? "step-active" : ""}`}>
-                                    <div className="step-dot">3</div>
-                                    <span>Extracting transactions</span>
+                                <div className={`bsm-step-line ${processingStep >= 3 ? "bsm-step-line-done" : ""}`} />
+                                <div className={`bsm-step-node ${processingStep >= 3 ? "bsm-step-done" : ""}`}>
+                                    <div className="bsm-step-badge">3</div>
+                                    <span className="bsm-step-label">Extracting & categorizing</span>
                                 </div>
                             </div>
                         </div>
                     )}
 
-                    {/* PREVIEW STATE */}
+                    {/* STEP 3: PREVIEW TABLE */}
                     {step === "preview" && (
-                        <div className="statement-preview-view">
-                            {/* PREVIEW STATS BAR */}
-                            <div className="preview-stats-bar">
-                                <div className="preview-stat-chip">
-                                    <span className="stat-label">Transactions Found</span>
-                                    <span className="stat-value count-value">{extractedList.length}</span>
+                        <div className="bsm-preview-section">
+                            {/* Summary Metrics Bar */}
+                            <div className={`bsm-summary-bar ${pagesCount > 1 ? "bsm-summary-bar-4col" : ""}`}>
+                                <div className="bsm-summary-stat">
+                                    <span className="bsm-stat-label">Transactions Found</span>
+                                    <span className="bsm-stat-value">{extractedList.length}</span>
                                 </div>
-                                <div className="preview-stat-chip">
-                                    <span className="stat-label">Total Inflow</span>
-                                    <span className="stat-value income-value">+₹{totalInflow.toLocaleString("en-IN")}</span>
+                                {pagesCount > 1 && (
+                                    <div className="bsm-summary-stat">
+                                        <span className="bsm-stat-label">Pages Processed</span>
+                                        <span className="bsm-stat-value">{pagesCount} Pages</span>
+                                    </div>
+                                )}
+                                <div className="bsm-summary-stat">
+                                    <span className="bsm-stat-label">Total Inflow</span>
+                                    <span className="bsm-stat-value bsm-stat-inflow">+₹{totalInflow.toLocaleString("en-IN")}</span>
                                 </div>
-                                <div className="preview-stat-chip">
-                                    <span className="stat-label">Total Outflow</span>
-                                    <span className="stat-value expense-value">-₹{totalOutflow.toLocaleString("en-IN")}</span>
+                                <div className="bsm-summary-stat">
+                                    <span className="bsm-stat-label">Total Outflow</span>
+                                    <span className="bsm-stat-value bsm-stat-outflow">-₹{totalOutflow.toLocaleString("en-IN")}</span>
                                 </div>
                             </div>
 
-                            <p className="preview-instruction">
-                                Review the extracted transactions below. You can adjust categories or remove any unwanted rows before importing.
-                            </p>
+                            {/* File Info & Instruction Banner */}
+                            <div className="bsm-file-meta-banner">
+                                <div className="bsm-file-tag">
+                                    <FileText size={16} color="#635bff" />
+                                    <span className="bsm-file-tag-name">{fileName}</span>
+                                    {fileSizeStr && <span className="bsm-file-tag-size">• {fileSizeStr}</span>}
+                                </div>
+                                <button
+                                    type="button"
+                                    className="bsm-replace-btn"
+                                    onClick={() => setStep("idle")}
+                                    disabled={isImporting}
+                                >
+                                    <RefreshCw size={13} />
+                                    <span>Upload Different File</span>
+                                </button>
+                            </div>
 
-                            {/* PREVIEW TABLE */}
-                            <div className="preview-table-container">
-                                <table className="preview-table">
-                                    <thead>
-                                        <tr>
-                                            <th>Merchant / Description</th>
-                                            <th>Category</th>
-                                            <th>Date</th>
-                                            <th>Type</th>
-                                            <th style={{ textAlign: "right" }}>Amount</th>
-                                            <th style={{ width: "40px", textAlign: "center" }}></th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {extractedList.map((item, idx) => (
-                                            <tr key={idx}>
-                                                <td>
-                                                    <div className="preview-merchant-cell">
-                                                        <span className="preview-merchant-name">{item.merchant}</span>
-                                                        {item.description && item.description !== item.merchant && (
-                                                            <span className="preview-merchant-desc">{item.description}</span>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                                <td>
-                                                    <select
-                                                        className="preview-category-select"
-                                                        value={item.category}
-                                                        onChange={(e) => handleCategoryChange(idx, e.target.value)}
-                                                    >
-                                                        {CATEGORIES.map((c) => (
-                                                            <option key={c} value={c}>
-                                                                {c}
-                                                            </option>
-                                                        ))}
-                                                    </select>
-                                                </td>
-                                                <td className="preview-date-cell">{formatDate(item.date)}</td>
-                                                <td>
-                                                    <span className={`preview-type-badge ${item.type === "income" ? "type-income" : "type-expense"}`}>
-                                                        {item.type === "income" ? "Income" : "Expense"}
-                                                    </span>
-                                                </td>
-                                                <td style={{ textAlign: "right" }}>
-                                                    <span className={`preview-amount ${item.type === "income" ? "income-value" : "expense-value"}`}>
-                                                        {item.type === "income" ? "+" : "-"}₹{Number(item.amount).toLocaleString("en-IN")}
-                                                    </span>
-                                                </td>
-                                                <td style={{ textAlign: "center" }}>
-                                                    <button
-                                                        type="button"
-                                                        className="row-delete-btn"
-                                                        title="Remove transaction"
-                                                        onClick={() => handleRemoveItem(idx)}
-                                                    >
-                                                        ✕
-                                                    </button>
-                                                </td>
+                            {/* Extracted Transactions Table Container */}
+                            <div className="bsm-table-container">
+                                {extractedList.length === 0 ? (
+                                    <div className="bsm-empty-preview">
+                                        <p>All extracted transactions were removed.</p>
+                                        <button
+                                            type="button"
+                                            className="bsm-btn-cancel"
+                                            onClick={() => setStep("idle")}
+                                        >
+                                            Upload Another Statement
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <table className="bsm-table">
+                                        <thead>
+                                            <tr>
+                                                <th style={{ width: "120px" }}>Date</th>
+                                                <th>Merchant / Narration</th>
+                                                <th style={{ width: "150px" }}>Category</th>
+                                                <th style={{ width: "120px" }}>Type</th>
+                                                <th style={{ width: "140px", textAlign: "right" }}>Amount</th>
+                                                <th style={{ width: "50px", textAlign: "center" }}></th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                                        </thead>
+                                        <tbody>
+                                            {extractedList.map((item, idx) => {
+                                                const subDesc = sanitizeDisplayNarration(item.description, item.merchant);
+                                                return (
+                                                    <tr key={idx}>
+                                                        <td className="bsm-date-cell">{formatDate(item.date)}</td>
+                                                        <td>
+                                                            <div className="bsm-merchant-block">
+                                                                <span className="bsm-merchant-name">{item.merchant}</span>
+                                                                {subDesc && (
+                                                                    <span className="bsm-merchant-narration" title={subDesc}>
+                                                                        {subDesc}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </td>
+                                                        <td>
+                                                            <select
+                                                                className="bsm-category-select"
+                                                                value={item.category}
+                                                                onChange={(e) => handleCategoryChange(idx, e.target.value)}
+                                                            >
+                                                                {CATEGORIES.map((c) => (
+                                                                    <option key={c} value={c}>
+                                                                        {c}
+                                                                    </option>
+                                                                ))}
+                                                            </select>
+                                                        </td>
+                                                        <td>
+                                                            <span
+                                                                className={`bsm-type-badge ${
+                                                                    item.type === "income"
+                                                                        ? "bsm-type-income"
+                                                                        : "bsm-type-expense"
+                                                                }`}
+                                                            >
+                                                                {item.type === "income" ? (
+                                                                    <>
+                                                                        <ArrowUpRight size={12} />
+                                                                        <span>Income</span>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <ArrowDownRight size={12} />
+                                                                        <span>Expense</span>
+                                                                    </>
+                                                                )}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ textAlign: "right" }}>
+                                                            <span
+                                                                className={`bsm-amount ${
+                                                                    item.type === "income"
+                                                                        ? "bsm-amount-income"
+                                                                        : "bsm-amount-expense"
+                                                                }`}
+                                                            >
+                                                                {item.type === "income" ? "+" : "-"}₹
+                                                                {Number(item.amount).toLocaleString("en-IN", {
+                                                                    minimumFractionDigits: 2,
+                                                                    maximumFractionDigits: 2,
+                                                                })}
+                                                            </span>
+                                                        </td>
+                                                        <td style={{ textAlign: "center" }}>
+                                                            <button
+                                                                type="button"
+                                                                className="bsm-delete-btn"
+                                                                title="Remove transaction"
+                                                                onClick={() => handleRemoveItem(idx)}
+                                                                aria-label="Remove transaction"
+                                                            >
+                                                                <Trash2 size={15} />
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                )}
                             </div>
                         </div>
                     )}
 
-                    {/* ERROR STATE */}
+                    {/* STEP 4: ERROR */}
                     {step === "error" && (
-                        <div className="statement-error-view">
-                            <div className="error-icon-circle">!</div>
-                            <h3>Statement Processing Failed</h3>
-                            <p>{errorMessage}</p>
-                            <div className="error-actions">
-                                <button type="button" className="btn-secondary" onClick={() => setStep("idle")}>
-                                    Try Another Statement
+                        <div className="bsm-error-section">
+                            <div className="bsm-error-circle">
+                                <AlertCircle size={28} />
+                            </div>
+                            <h4 className="bsm-error-title">Unable to Process Statement</h4>
+                            <p className="bsm-error-desc">{errorMessage}</p>
+                            <div className="bsm-error-actions">
+                                <button
+                                    type="button"
+                                    className="bsm-btn-import"
+                                    onClick={() => setStep("idle")}
+                                >
+                                    <RefreshCw size={15} />
+                                    <span>Try Another File</span>
                                 </button>
-                                <button type="button" className="btn-outline" onClick={handleClose}>
+                                <button
+                                    type="button"
+                                    className="bsm-btn-cancel"
+                                    onClick={handleClose}
+                                >
                                     Close
                                 </button>
                             </div>
@@ -410,37 +566,35 @@ const BankStatementModal: React.FC<BankStatementModalProps> = ({
                     )}
                 </div>
 
-                {/* MODAL FOOTER */}
+                {/* 3. MODAL FOOTER */}
                 {step === "preview" && (
-                    <div className="statement-modal-footer">
+                    <div className="bsm-footer">
                         <button
                             type="button"
-                            className="btn-secondary"
-                            onClick={() => setStep("idle")}
+                            className="bsm-btn-cancel"
+                            onClick={handleClose}
                             disabled={isImporting}
                         >
-                            Upload Another File
+                            Cancel
                         </button>
-                        <div className="footer-right-actions">
-                            <button
-                                type="button"
-                                className="btn-outline"
-                                onClick={handleClose}
-                                disabled={isImporting}
-                            >
-                                Cancel
-                            </button>
-                            <button
-                                type="button"
-                                className="btn-primary"
-                                onClick={handleImportConfirmed}
-                                disabled={isImporting || extractedList.length === 0}
-                            >
-                                {isImporting
-                                    ? "Importing..."
-                                    : `Import ${extractedList.length} Transactions`}
-                            </button>
-                        </div>
+                        <button
+                            type="button"
+                            className="bsm-btn-import"
+                            onClick={handleImportConfirmed}
+                            disabled={isImporting || extractedList.length === 0}
+                        >
+                            {isImporting ? (
+                                <>
+                                    <div className="bsm-spinner" />
+                                    <span>Saving to Database...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <CheckCircle2 size={16} />
+                                    <span>Import {extractedList.length} Transactions</span>
+                                </>
+                            )}
+                        </button>
                     </div>
                 )}
             </div>

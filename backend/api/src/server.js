@@ -18,6 +18,7 @@ app.use(helmet());
 app.use(
     cors({
         origin: (origin, callback) => {
+            // Allow all localhost dev origins (5173, 5174, 5175, etc.) or same-origin
             if (!origin || /^http:\/\/localhost:\d+$/.test(origin) || /^http:\/\/127\.0\.0\.1:\d+$/.test(origin)) {
                 callback(null, true);
             } else {
@@ -42,7 +43,7 @@ app.use("/api/transactions", transactionRoutes);
 app.get("/", (req, res) => {
     res.json({
         success: true,
-        message: "FinMitra API is running",
+        message: "Wallet-Mate API is running",
         version: "2.0.0",
         collections: ["users", "transactions"],
     });
@@ -51,7 +52,7 @@ app.get("/", (req, res) => {
 app.get("/api/health", (req, res) => {
     res.json({
         success: true,
-        service: "FinMitra API",
+        service: "Wallet-Mate API",
         status: "healthy",
         database: "MongoDB (users, transactions)",
     });
@@ -69,9 +70,10 @@ app.use((err, req, res, next) => {
     });
 });
 
-/*
- * Start server
- */
-app.listen(PORT, () => {
-    console.log(`FinMitra API running on http://localhost:${PORT}`);
-});
+if (require.main === module) {
+    app.listen(PORT, () => {
+        console.log(`Wallet-Mate API running on http://localhost:${PORT}`);
+    });
+}
+
+module.exports = app;

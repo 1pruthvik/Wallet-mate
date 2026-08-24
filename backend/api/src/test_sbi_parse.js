@@ -1,12 +1,6 @@
-const { PDFParse } = require("pdf-parse");
-
-/* =========================================================
-   MERCHANT PATTERNS & CATEGORY MAPPINGS (Indian Banking Context)
-========================================================= */
-
 const MERCHANT_PATTERNS = [
     // Income & Credits
-    { regex: /salary|payroll|corp\s*salary|direct\s*dep|monthly\s*stipend/i, name: "Salary Credit", category: "Salary", isIncome: true },
+    { regex: /salary|payroll|ach\/salary|corp\s*salary|direct\s*dep|monthly\s*stipend/i, name: "Salary Credit", category: "Salary", isIncome: true },
     { regex: /dividend|interest\s*cr|int\.pd|savings\s*interest/i, name: "Interest / Dividend", category: "Investment", isIncome: true },
     { regex: /refund|cashback|cash\s*back|reversal|chargeback/i, name: "Refund / Cashback", category: "Income", isIncome: true },
     { regex: /freelance|consulting|client\s*pay|upwork|fiverr/i, name: "Freelance Income", category: "Freelance", isIncome: true },
@@ -63,12 +57,8 @@ const MERCHANT_PATTERNS = [
     // Investment & Banking
     { regex: /zerodha|groww|upstox|angel\s*one|kuvera|indmoney/i, name: "Stock / Mutual Fund Investment", category: "Investment" },
     { regex: /sip\s*payment|mf\s*purchase|uti\s*mf|sbi\s*mf|hdfc\s*mf/i, name: "Mutual Fund SIP", category: "Investment" },
-    { regex: /atm\s*w|atm\s*cash|cash\s*w\/d/i, name: "ATM Cash Withdrawal", category: "Other" },
+    { regex: /atw|atm\s*w|atm\s*cash|cash\s*w\/d|cash-saket/i, name: "ATM Cash Withdrawal", category: "Other" },
 ];
-
-/* =========================================================
-   CLEAN NARRATION & EXTRACT MERCHANT
-========================================================= */
 
 const identifyMerchantAndCategory = (narration, isCredit = false) => {
     const text = (narration || "").trim();
@@ -112,13 +102,15 @@ const identifyMerchantAndCategory = (narration, isCredit = false) => {
     };
 };
 
-/* =========================================================
-   PARSE BANK DATE FORMATS (Indian Banking Standard)
-========================================================= */
+const parseAmountString = (amountStr) => {
+    if (!amountStr) return 0;
+    const clean = amountStr.replace(/[₹$€\s]|INR|Rs\.?/gi, "").replace(/,/g, "").trim();
+    const val = parseFloat(clean);
+    return isNaN(val) ? 0 : Math.abs(val);
+};
 
 const parseBankDate = (dateStr) => {
     if (!dateStr) return new Date().toISOString();
-
     const clean = dateStr.trim();
 
     // Standard DD/MM/YYYY or DD-MM-YYYY or DD.MM.YYYY
@@ -133,10 +125,10 @@ const parseBankDate = (dateStr) => {
         if (!isNaN(d.getTime())) return d.toISOString();
     }
 
-    // DD-Mon-YYYY e.g., 03-Aug-2026 or 03-AUG-2026
+    // DD-Mon-YYYY e.g., 03-Aug-2026
     const monthNames = {
         jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
-        jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11,
+        jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
     };
     const ddmon = clean.match(/^(\d{1,2})[-/\s]([A-Za-z]{3})[-/\s](\d{2,4})$/);
     if (ddmon) {
@@ -150,34 +142,8 @@ const parseBankDate = (dateStr) => {
         if (!isNaN(d.getTime())) return d.toISOString();
     }
 
-    // YYYY-MM-DD
-    const yyyymmdd = clean.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/);
-    if (yyyymmdd) {
-        let year = parseInt(yyyymmdd[1], 10);
-        let month = parseInt(yyyymmdd[2], 10) - 1;
-        let day = parseInt(yyyymmdd[3], 10);
-        const d = new Date(Date.UTC(year, month, day, 12, 0, 0));
-        if (!isNaN(d.getTime())) return d.toISOString();
-    }
-
-    const fallback = new Date(clean);
-    return isNaN(fallback.getTime()) ? new Date().toISOString() : fallback.toISOString();
+    return new Date().toISOString();
 };
-
-/* =========================================================
-   CLEAN & PARSE NUMERICAL AMOUNTS
-========================================================= */
-
-const parseAmountString = (amountStr) => {
-    if (!amountStr) return 0;
-    const clean = amountStr.replace(/[₹$€\s]|INR|Rs\.?/gi, "").replace(/,/g, "").trim();
-    const val = parseFloat(clean);
-    return isNaN(val) ? 0 : Math.abs(val);
-};
-
-/* =========================================================
-   DETECTION FOR NON-TRANSACTION / HEADER / FOOTER LINES
-========================================================= */
 
 const isNoiseLine = (line) => {
     const l = line.toLowerCase().trim();
@@ -187,125 +153,22 @@ const isNoiseLine = (line) => {
         l.includes("statement period") ||
         l.includes("statement of account") ||
         l.includes("account statement") ||
-        l.includes("customer id") ||
-        l.includes("account number") ||
-        l.includes("ifsc code") ||
-        l.includes("micr") ||
-        l.includes("branch address") ||
-        l.includes("gstin") ||
         l.includes("b/f / opening balance") ||
         l.includes("opening balance") ||
         l.includes("closing balance") ||
-        l.includes("total withdrawal") ||
-        l.includes("total deposit") ||
-        l.includes("nomination registered") ||
-        l.includes("computer generated statement") ||
-        l.includes("registered office") ||
-        l.includes("toll free") ||
-        l.includes("email id") ||
-        l.includes("generated on") ||
-        /^\d+[\s\d]*$/.test(l)
+        l.includes("total withdrawals") ||
+        l.includes("total deposits") ||
+        l.includes("txn date") ||
+        l.includes("value date") ||
+        l.includes("description / narration") ||
+        /^\d+[\s\d]*$/.test(l) // pure orphan digits like '6 6'
     );
 };
 
-const isTableHeader = (line) => {
-    const l = line.toLowerCase();
-    return (
-        (l.includes("date") && (l.includes("narration") || l.includes("particulars") || l.includes("description") || l.includes("details"))) ||
-        (l.includes("txn date") && l.includes("value date")) ||
-        (l.includes("chq/ref") && l.includes("withdrawal")) ||
-        (l.includes("debit (dr)") && l.includes("credit (cr)"))
-    );
-};
+function extractTransactionsFromText(rawText) {
+    if (!rawText) return [];
 
-/* =========================================================
-   EXTRACT TRANSACTIONS FROM CSV STRUCTURE
-========================================================= */
-
-const extractTransactionsFromCsv = (rawText) => {
-    const lines = rawText
-        .split(/\r?\n/)
-        .map((l) => l.trim())
-        .filter((l) => l.length > 0);
-
-    const transactions = [];
-    const dateAnyRegex = /\b(\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}|\d{1,2}[-/\s][A-Za-z]{3}[-/\s]\d{2,4})\b/;
-
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        if (isTableHeader(line) || isNoiseLine(line)) continue;
-
-        // Split CSV row handling quotes
-        const parts = line.split(",").map((p) => p.replace(/^["']|["']$/g, "").trim());
-        if (parts.length < 3) continue;
-
-        const dateMatch = parts[0].match(dateAnyRegex);
-        if (!dateMatch) continue;
-
-        const dateStr = dateMatch[1];
-        const narration = parts[1] || "Transaction";
-
-        const numericCols = [];
-        for (let c = 2; c < parts.length; c++) {
-            const cleanAmt = parseAmountString(parts[c]);
-            if (cleanAmt > 0) {
-                numericCols.push({ index: c, value: cleanAmt, raw: parts[c] });
-            }
-        }
-
-        let debit = 0;
-        let credit = 0;
-        let balance = null;
-
-        if (numericCols.length >= 2) {
-            if (parts.length >= 5 || numericCols.length >= 3) {
-                balance = numericCols[numericCols.length - 1].value;
-                debit = numericCols[0].value;
-                credit = numericCols.length > 2 ? numericCols[1].value : 0;
-            } else {
-                debit = numericCols[0].value;
-                credit = numericCols[1].value;
-            }
-        } else if (numericCols.length === 1) {
-            const val = numericCols[0].value;
-            if (/cr|credit|deposit|salary|\+[\d.]+/i.test(line)) {
-                credit = val;
-            } else {
-                debit = val;
-            }
-        }
-
-        const amount = debit > 0 ? debit : credit;
-        const isCredit = credit > 0 || (/cr|credit|deposit|salary|refund/i.test(narration) && !/dr|debit/i.test(narration));
-
-        if (amount > 0) {
-            const { merchant, category, type } = identifyMerchantAndCategory(narration, isCredit);
-            transactions.push({
-                merchant,
-                category,
-                amount,
-                type,
-                date: parseBankDate(dateStr),
-                description: narration.slice(0, 200),
-                referenceNumber: parts[2] && isNaN(parseAmountString(parts[2])) ? parts[2] : "",
-                balanceAfterTransaction: balance,
-            });
-        }
-    }
-
-    return transactions;
-};
-
-/* =========================================================
-   EXTRACT TRANSACTIONS FROM TEXT (PDF Streams & Multi-Line)
-========================================================= */
-
-const extractTransactionsFromText = (rawText) => {
-    if (!rawText || rawText.trim().length === 0) {
-        return [];
-    }
-
-    // Pre-repair wrapped dates and truncated years
+    // Pre-clean wrapped dates
     let text = rawText
         .replace(/(\d{1,2}[-/\s][A-Za-z]{3}[-/\s]202)\s*[\r\n]+\s*(\d)\b/g, "$1$2")
         .replace(/(\d{1,2}[-/.]\d{1,2}[-/.]202)\s*[\r\n]+\s*(\d)\b/g, "$1$2")
@@ -318,12 +181,7 @@ const extractTransactionsFromText = (rawText) => {
         .filter((l) => l.length > 0);
 
     const transactions = [];
-
-    // Regex matching Indian banking date at line start
     const dateStartRegex = /^(\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}|\d{1,2}[-/\s][A-Za-z]{3}[-/\s]\d{2,4})/;
-
-    // Match money amounts: numbers with decimals e.g., 85,000.00, 1,29,550.00, 450.00, ₹1,25,000.50
-    const amountRegex = /(?:₹|INR|Rs\.?\s*)?\b\d{1,3}(?:,\d{2,3})*(?:\.\d{1,2})\b|(?:₹|INR|Rs\.?\s*)?\b\d{1,3}(?:,\d{2,3})+\b/g;
 
     let currentTx = null;
 
@@ -351,19 +209,10 @@ const extractTransactionsFromText = (rawText) => {
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
 
-        // 1. Skip table headers
-        if (isTableHeader(line)) {
-            finalizeCurrentTx();
-            continue;
-        }
-
-        // 2. Skip obvious noise lines
         if (isNoiseLine(line)) {
-            finalizeCurrentTx();
             continue;
         }
 
-        // 3. Match Date at start of transaction line
         const dateMatch = line.match(dateStartRegex);
 
         if (dateMatch) {
@@ -372,20 +221,21 @@ const extractTransactionsFromText = (rawText) => {
             const dateStr = dateMatch[1];
             let remainingText = line.substring(dateMatch[0].length).trim();
 
-            // Strip redundant Value Date if present
+            // Strip redundant Value Date if present at the start of remainingText
             const valueDateMatch = remainingText.match(dateStartRegex);
             if (valueDateMatch) {
                 remainingText = remainingText.substring(valueDateMatch[0].length).trim();
             }
 
+            // Check for table column patterns:
+            // 1. Dash in Debit position -> "- <credit_amount> <balance>" (e.g. "- 60,000.00 1,05,230.00")
+            // 2. Dash in Credit position -> "<debit_amount> - <balance>" (e.g. "840.00 - 1,04,390.00")
             let amount = 0;
             let balance = null;
-            let isCredit = false;
             let explicitType = null;
+            let isCredit = false;
 
-            // Pattern A: Dash in Debit column -> "- <credit_amount> <balance>"
             const creditPattern = remainingText.match(/-\s+([₹$€\s]*\d{1,3}(?:,\d{2,3})*(?:\.\d{1,2}))\s+([₹$€\s]*\d{1,3}(?:,\d{2,3})*(?:\.\d{1,2}))\s*$/);
-            // Pattern B: Dash in Credit column -> "<debit_amount> - <balance>"
             const debitPattern = remainingText.match(/([₹$€\s]*\d{1,3}(?:,\d{2,3})*(?:\.\d{1,2}))\s+-\s+([₹$€\s]*\d{1,3}(?:,\d{2,3})*(?:\.\d{1,2}))\s*$/);
 
             if (creditPattern) {
@@ -401,6 +251,8 @@ const extractTransactionsFromText = (rawText) => {
                 explicitType = "expense";
                 remainingText = remainingText.slice(0, debitPattern.index).trim();
             } else {
+                // Fallback amount matching
+                const amountRegex = /(?:₹|INR|Rs\.?\s*)?\b\d{1,3}(?:,\d{2,3})*(?:\.\d{1,2})\b|(?:₹|INR|Rs\.?\s*)?\b\d{1,3}(?:,\d{2,3})+\b/g;
                 const rawAmounts = remainingText.match(amountRegex) || [];
                 const validAmounts = rawAmounts
                     .map((a) => ({ raw: a, value: parseAmountString(a) }))
@@ -417,8 +269,7 @@ const extractTransactionsFromText = (rawText) => {
                     amount = validAmounts[0].value;
                 }
 
-                if (/(\bcr\b|\bcredit\b|\bdeposit\b|\+[\d.]+|\bsalary\b|\breceived\b)/i.test(line) &&
-                    !/(\bdr\b|\bdebit\b|\bwithdrawal\b|\bto\s+upi\b|\bpos\b)/i.test(line)) {
+                if (/(\bcr\b|\bcredit\b|\bdeposit\b|\bsalary\b)/i.test(line)) {
                     isCredit = true;
                     explicitType = "income";
                 } else if (/(\bdr\b|\bdebit\b|\bwithdrawal\b)/i.test(line)) {
@@ -431,6 +282,7 @@ const extractTransactionsFromText = (rawText) => {
                 });
             }
 
+            // Extract Reference Number (e.g. TXN98324792, CHQ012934, 6219834729, N150263489, I200293847)
             const refMatch = remainingText.match(/\b(?:TXN|CHQ|REF|UTR|IMPS|NEFT)?[A-Za-z0-9]{8,22}\b/i) ||
                              remainingText.match(/\b(?:CHQ|REF|TXN)[-:\s#]*([A-Za-z0-9]{5,20})\b/i);
             const referenceNumber = refMatch ? (refMatch[1] || refMatch[0]) : "";
@@ -440,7 +292,6 @@ const extractTransactionsFromText = (rawText) => {
                 .replace(/[-+]\s*[$€₹£]\s*[$€₹£]?/g, " ")
                 .replace(/[$€₹£]/g, " ")
                 .replace(/\b(?:dr|cr|inr|rs\.?)\b/gi, "")
-                .replace(/[|;,\t]+/g, " ")
                 .replace(/[-_\s]+$/, "")
                 .replace(/\s{2,}/g, " ")
                 .trim();
@@ -454,121 +305,30 @@ const extractTransactionsFromText = (rawText) => {
                 referenceNumber,
                 balance,
             };
-        } else if (currentTx) {
-            // Continuation line of multi-line narration
-            if (!isNoiseLine(line) && !isTableHeader(line) && line.length > 1 && !line.startsWith("--")) {
-                let contText = line;
-                const rawAmounts = contText.match(amountRegex) || [];
-                const validAmounts = rawAmounts
-                    .map((a) => ({ raw: a, value: parseAmountString(a) }))
-                    .filter((item) => {
-                        if (item.value <= 0 || item.value > 100000000) return false;
-                        if (/^\d{4}$/.test(item.raw.trim()) && item.value >= 1990 && item.value <= 2099) return false;
-                        return true;
-                    });
-
-                if (currentTx.amount === 0 && validAmounts.length > 0) {
-                    if (validAmounts.length >= 2) {
-                        currentTx.amount = validAmounts[0].value;
-                        currentTx.balance = validAmounts[validAmounts.length - 1].value;
-                    } else {
-                        currentTx.amount = validAmounts[0].value;
-                    }
-
-                    if (/(\bcr\b|\bcredit\b|\bdeposit\b)/i.test(contText)) {
-                        currentTx.isCredit = true;
-                        currentTx.explicitType = "income";
-                    }
-                    if (/(\bdr\b|\bdebit\b|\bwithdrawal\b)/i.test(contText)) {
-                        currentTx.isCredit = false;
-                        currentTx.explicitType = "expense";
-                    }
-
-                    validAmounts.forEach((v) => {
-                        contText = contText.replace(v.raw, "");
-                    });
-                }
-
-                const refMatch = contText.match(/\b(?:REF|CHQ|TXN|UTR|IMPS|NEFT)[-:\s#]*([A-Za-z0-9]{4,22})\b/i);
-                if (refMatch && !currentTx.referenceNumber) {
-                    currentTx.referenceNumber = refMatch[1];
-                }
-
-                const continuation = contText
-                    .replace(/[-+]\s*[$€₹£]\s*[$€₹£]?/g, " ")
-                    .replace(/[$€₹£]/g, " ")
-                    .replace(/\b(?:dr|cr|inr|rs\.?)\b/gi, "")
-                    .replace(/[|;,\t]+/g, " ")
-                    .replace(/\s{2,}/g, " ")
-                    .trim();
-
-                if (continuation.length > 0) {
-                    currentTx.narration += " " + continuation;
-                }
-            }
         }
     }
 
     finalizeCurrentTx();
     return transactions;
-};
+}
 
-/* =========================================================
-   PARSE STATEMENT BUFFER (PDF, Text, or CSV)
-========================================================= */
+const sbiWrappedText = `
+Opening Balance Total Deposits (Cr) Total Withdrawals (Dr) Closing Balance
+45,230.00 62,500.00 18,340.00 89,390.00
+Txn Date Value Date Description / Narration Ref / Cheque No. Debit (Dr) Credit (Cr) Balance
+01-Aug-202 01-Aug-202 B/F / Opening Balance - - - 45,230.00
+6 6
+03-Aug-202 03-Aug-202 ACH/SALARY/TCS_LTD TXN98324792 - 60,000.00 1,05,230.00
+6 6
+05-Aug-202 05-Aug-202 UPI-ZOMATO-PAY-UPI@OKSBI 6219834729 840.00 - 1,04,390.00
+6 6
+10-Aug-202 10-Aug-202 ATW-CASH-SAKET-DELHI CHQ012934 10,000.00 - 94,390.00
+6 6
+15-Aug-202 15-Aug-202 NEFT-AMAZON RETAIL-SBI N150263489 7,500.00 - 86,890.00
+6 6
+20-Aug-202 20-Aug-202 IMPS-MOHIT SHARMA-SBI I200293847 - 2,500.00 89,390.00
+6 6
+`;
 
-const parseStatementBuffer = async (buffer, mimetype, originalname = "") => {
-    let rawText = "";
-    let pagesProcessed = 1;
-
-    const isPdf =
-        mimetype === "application/pdf" ||
-        originalname.toLowerCase().endsWith(".pdf") ||
-        (buffer && buffer.length >= 4 && buffer.slice(0, 4).toString() === "%PDF");
-
-    const isCsv =
-        mimetype === "text/csv" ||
-        originalname.toLowerCase().endsWith(".csv") ||
-        mimetype === "text/plain";
-
-    if (isPdf) {
-        try {
-            const parser = new PDFParse({ data: buffer });
-            const parsed = await parser.getText();
-            rawText = parsed.text || "";
-            pagesProcessed = parsed.total || 1;
-        } catch (err) {
-            console.error("PDF extraction error:", err.message);
-            throw new Error("Failed to read PDF contents. Please ensure the file is a valid, uncorrupted, and non-password-protected PDF statement.");
-        }
-    } else {
-        rawText = buffer.toString("utf8");
-    }
-
-    if (!rawText || rawText.trim().length === 0) {
-        throw new Error("This PDF appears to be image-based or scanned. Text could not be extracted automatically. Please upload a digital/text-based statement.");
-    }
-
-    const transactions = isCsv && !isPdf
-        ? extractTransactionsFromCsv(rawText)
-        : extractTransactionsFromText(rawText);
-
-    if (transactions.length === 0) {
-        throw new Error("No readable transactions could be identified in this statement. Please verify that the PDF contains standard bank transaction tables.");
-    }
-
-    return {
-        transactions,
-        pagesProcessed,
-        fileName: originalname || "bank_statement.pdf",
-    };
-};
-
-module.exports = {
-    parseStatementBuffer,
-    extractTransactionsFromText,
-    extractTransactionsFromCsv,
-    identifyMerchantAndCategory,
-    parseBankDate,
-    parseAmountString,
-};
+console.log("Extracted Transactions:");
+console.log(JSON.stringify(extractTransactionsFromText(sbiWrappedText), null, 2));

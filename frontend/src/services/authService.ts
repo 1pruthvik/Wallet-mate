@@ -1,39 +1,12 @@
-import type { User, AuthResponse, OtpSession, SignupData } from '../types/auth';
+import type { User, AuthResponse, SignupData } from '../types/auth';
 import apiClient from '../api/client';
-import { sendMSG91Otp, retryMSG91Otp, verifyMSG91Otp } from './msg91Service';
 
 const STORAGE_KEYS = {
   USER: 'wallet_mate_auth_user',
   TOKEN: 'wallet_mate_auth_token',
   REMEMBER: 'wallet_mate_remember_me',
-  USERS_DB: 'wallet_mate_mock_users_db',
-  OTP_SESSION: 'wallet_mate_current_otp_session',
+  USERS_DB: 'wallet_mate_users_db',
 };
-
-const DEFAULT_MOCK_USERS: User[] = [
-  {
-    id: '660000000000000000000001',
-    name: 'Nivish',
-    email: 'nivish@walletmate.io',
-    phone: '+919876543210',
-    avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-    role: 'Standard Member',
-    authProvider: 'email',
-    isPhoneVerified: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    id: '660000000000000000000002',
-    name: 'Alex Morgan',
-    email: 'alex.morgan@walletmate.io',
-    phone: '+919876543210',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    role: 'Premium Member',
-    authProvider: 'email',
-    isPhoneVerified: true,
-    createdAt: new Date().toISOString(),
-  }
-];
 
 class AuthService {
   public isConfiguredForBackend(): boolean {
@@ -49,8 +22,7 @@ class AuthService {
     } catch {
       // ignore
     }
-    localStorage.setItem(STORAGE_KEYS.USERS_DB, JSON.stringify(DEFAULT_MOCK_USERS));
-    return DEFAULT_MOCK_USERS;
+    return [];
   }
 
   private saveStoredUsers(users: User[]) {
@@ -59,15 +31,6 @@ class AuthService {
     } catch {
       // ignore
     }
-  }
-
-  private maskPhoneNumber(countryCode: string, phone: string): string {
-    const cleanPhone = phone.replace(/\D/g, '');
-    if (cleanPhone.length <= 4) return `${countryCode} ${cleanPhone}`;
-    const start = cleanPhone.slice(0, 2);
-    const end = cleanPhone.slice(-2);
-    const masked = 'X'.repeat(Math.max(4, cleanPhone.length - 4));
-    return `${countryCode} ${start}${masked}${end}`;
   }
 
   // ==========================================
@@ -110,22 +73,21 @@ class AuthService {
       if (apiErr.response && apiErr.response.data?.message) {
         throw new Error(apiErr.response.data.message);
       }
-      console.warn('Backend login endpoint unavailable, using offline fallback:', apiErr.message);
+      console.warn('Backend login endpoint unavailable, checking local store:', apiErr.message);
     }
 
-    // Offline / Mock Fallback
+    // Offline Fallback
     const users = this.getStoredUsers();
     let user = users.find((u) => u.email.toLowerCase() === cleanEmail);
 
     if (!user) {
       user = {
-        id: `66000000000000000000${Date.now().toString().slice(-4)}`,
-        name: cleanEmail.split('@')[0].replace('.', ' ').replace(/^./, (str) => str.toUpperCase()),
+        id: `66${Date.now().toString(16).padStart(22, '0').slice(-22)}`,
+        name: cleanEmail.split('@')[0].replace(/[._-]/g, ' ').replace(/\b\w/g, (s) => s.toUpperCase()),
         email: cleanEmail,
         avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${cleanEmail}`,
         role: 'Standard Member',
         authProvider: 'email',
-        isPhoneVerified: false,
         createdAt: new Date().toISOString(),
       };
       users.push(user);
@@ -172,7 +134,6 @@ class AuthService {
         fullName: cleanName,
         email: cleanEmail,
         password: signupData.password,
-        phoneNumber: signupData.phone,
       });
 
       if (res.data && res.data.token && res.data.user) {
@@ -188,10 +149,10 @@ class AuthService {
       if (apiErr.response && apiErr.response.data?.message) {
         throw new Error(apiErr.response.data.message);
       }
-      console.warn('Backend register endpoint unavailable, using offline fallback:', apiErr.message);
+      console.warn('Backend register endpoint unavailable, checking local store:', apiErr.message);
     }
 
-    // Offline / Mock Fallback
+    // Offline Fallback
     const users = this.getStoredUsers();
     const existing = users.find((u) => u.email.toLowerCase() === cleanEmail);
 
@@ -200,14 +161,12 @@ class AuthService {
     }
 
     const newUser: User = {
-      id: `66000000000000000000${Date.now().toString().slice(-4)}`,
+      id: `66${Date.now().toString(16).padStart(22, '0').slice(-22)}`,
       name: cleanName,
       email: cleanEmail,
-      phone: signupData.phone || undefined,
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${cleanEmail}`,
       role: 'Standard Member',
       authProvider: 'email',
-      isPhoneVerified: false,
       createdAt: new Date().toISOString(),
     };
 
@@ -219,144 +178,6 @@ class AuthService {
     localStorage.setItem(STORAGE_KEYS.TOKEN, token);
 
     return { user: newUser, token, expiresIn: 86400 * 7 };
-  }
-
-  // ==========================================
-  // PHONE OTP AUTHENTICATION (REAL SMS VIA TWILIO VERIFY)
-  // ==========================================
-  async sendPhoneOtp(
-    phone: string,
-    countryCode = '+91',
-    purpose: 'login' | 'signup' | 'password-reset' = 'login',
-    tempUserData?: Partial<SignupData>
-  ): Promise<OtpSession> {
-    const cleanDigits = phone.replace(/\D/g, '');
-    if (cleanDigits.length < 7 || cleanDigits.length > 15) {
-      throw new Error('Please enter a valid mobile number.');
-    }
-
-    const fullPhone = `${countryCode}${cleanDigits}`;
-    const fallbackMasked = this.maskPhoneNumber(countryCode, cleanDigits);
-
-    // 1. Trigger MSG91 exposed method window.sendOtp('919876543210')
-    try {
-      await sendMSG91Otp(fullPhone);
-    } catch (msg91Err) {
-      console.warn('MSG91 client sendOtp notice:', msg91Err);
-    }
-
-    // 2. Call backend API to log session and trigger MSG91 server v5 API
-    try {
-      const res = await apiClient.post<{
-        success: boolean;
-        message: string;
-        otpCode?: string;
-        maskedPhone?: string;
-        data?: { phone: string; maskedPhone: string; expiresInSeconds: number; otpCode?: string };
-      }>('/auth/send-otp', {
-        phone: cleanDigits,
-        countryCode,
-        purpose,
-      });
-
-      const expiresInSeconds = res.data?.data?.expiresInSeconds || 300;
-      const expiresAt = Date.now() + expiresInSeconds * 1000;
-      const maskedPhone = res.data?.maskedPhone || res.data?.data?.maskedPhone || fallbackMasked;
-      const otpCode = res.data?.otpCode || res.data?.data?.otpCode;
-
-      const session: OtpSession = {
-        phone: fullPhone,
-        countryCode,
-        purpose,
-        maskedPhone,
-        expiresAt,
-        otpCode,
-        tempUserData,
-      };
-
-      sessionStorage.setItem(STORAGE_KEYS.OTP_SESSION, JSON.stringify(session));
-      return session;
-    } catch (err: any) {
-      if (err.response?.data?.message) {
-        throw new Error(err.response.data.message);
-      }
-      throw new Error(err.message || 'Failed to send SMS verification code. Please check your backend connection.');
-    }
-  }
-
-  async verifyPhoneOtp(
-    phone: string,
-    otp: string,
-    purpose: 'login' | 'signup' | 'password-reset' = 'login',
-    tempUserData?: Partial<SignupData>
-  ): Promise<AuthResponse | { verified: true }> {
-    if (otp.length !== 6 || !/^\d{6}$/.test(otp)) {
-      throw new Error('Please enter the complete 6-digit verification code.');
-    }
-
-    // 1. Call MSG91 exposed method window.verifyOtp('123456')
-    try {
-      await verifyMSG91Otp(otp);
-    } catch (msg91Err) {
-      console.warn('MSG91 client verifyOtp notice:', msg91Err);
-    }
-
-    try {
-      // 2. Call backend API to verify code with MSG91 API v5
-      const res = await apiClient.post<{
-        success: boolean;
-        message?: string;
-        token: string;
-        user: User;
-        verified?: boolean;
-      }>('/auth/verify-otp', {
-        phone,
-        otp,
-        name: tempUserData?.name,
-        email: tempUserData?.email,
-        purpose,
-      });
-
-      if (purpose === 'password-reset') {
-        return { verified: true };
-      }
-
-      if (res.data && res.data.token && res.data.user) {
-        const user = res.data.user;
-        const token = res.data.token;
-
-        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
-        localStorage.setItem(STORAGE_KEYS.TOKEN, token);
-        sessionStorage.removeItem(STORAGE_KEYS.OTP_SESSION);
-
-        return { user, token };
-      }
-
-      throw new Error(res.data?.message || 'Verification failed. Please check the code and try again.');
-    } catch (err: any) {
-      if (err.response?.data?.message) {
-        throw new Error(err.response.data.message);
-      }
-      throw new Error(err.message || 'Failed to verify the SMS code. Please try again.');
-    }
-  }
-
-  async resendPhoneOtp(phone: string, channel = '11'): Promise<{ success: boolean; message: string }> {
-    try {
-      await retryMSG91Otp(channel);
-    } catch (err) {
-      console.warn('MSG91 client retryOtp notice:', err);
-    }
-
-    try {
-      const res = await apiClient.post<{ success: boolean; message: string }>('/auth/resend-otp', {
-        phone,
-        retryType: channel === '4' ? 'voice' : 'text',
-      });
-      return { success: true, message: res.data?.message || 'OTP resent successfully.' };
-    } catch (err: any) {
-      throw new Error(err.response?.data?.message || 'Failed to resend OTP code.');
-    }
   }
 
   // ==========================================
@@ -374,14 +195,16 @@ class AuthService {
     };
   }
 
-  async resetPassword(identifier: string, newPassword: string): Promise<{ success: boolean }> {
+  async resetPassword(email: string, newPassword: string): Promise<{ success: boolean }> {
     if (!newPassword || newPassword.length < 8) {
       throw new Error('Password must be at least 8 characters long.');
     }
 
+    const cleanEmail = email.trim().toLowerCase();
+
     try {
       await apiClient.post('/auth/reset-password', {
-        identifier,
+        email: cleanEmail,
         newPassword,
       });
       return { success: true };
@@ -390,90 +213,13 @@ class AuthService {
     }
 
     const users = this.getStoredUsers();
-    const user = users.find(
-      (u) => u.email.toLowerCase() === identifier.toLowerCase() || u.phone === identifier
-    );
+    const user = users.find((u) => u.email.toLowerCase() === cleanEmail);
 
     if (user) {
       this.saveStoredUsers(users);
     }
 
     return { success: true };
-  }
-
-  // ==========================================
-  // GOOGLE OAUTH SIMULATION / INTEGRATION
-  // ==========================================
-  async signInWithGoogle(): Promise<AuthResponse> {
-    const googleUser: User = {
-      id: '660000000000000000000003',
-      name: 'Alex Morgan',
-      email: 'alex.morgan@gmail.com',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-      role: 'Pro Member',
-      authProvider: 'google',
-      isPhoneVerified: true,
-      createdAt: new Date().toISOString(),
-    };
-
-    const token = `wm_jwt_google_${Date.now()}`;
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(googleUser));
-    localStorage.setItem(STORAGE_KEYS.TOKEN, token);
-
-    return { user: googleUser, token };
-  }
-
-  // ==========================================
-  // PASSKEY / WEBAUTHN SIMULATION & INTEGRATION
-  // ==========================================
-  async signInWithPasskey(): Promise<AuthResponse> {
-    const passkeyUser: User = {
-      id: '660000000000000000000004',
-      name: 'Biometric Authenticated User',
-      email: 'biometric.user@walletmate.io',
-      avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-      role: 'Enterprise Member',
-      authProvider: 'passkey',
-      isPhoneVerified: true,
-      createdAt: new Date().toISOString(),
-    };
-
-    const token = `wm_jwt_passkey_${Date.now()}`;
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(passkeyUser));
-    localStorage.setItem(STORAGE_KEYS.TOKEN, token);
-
-    return { user: passkeyUser, token };
-  }
-
-  // ==========================================
-  // ENTERPRISE SSO
-  // ==========================================
-  async signInWithSSO(workEmailOrDomain: string): Promise<AuthResponse> {
-    const domain = workEmailOrDomain.includes('@')
-      ? workEmailOrDomain.split('@')[1]
-      : workEmailOrDomain;
-
-    if (!domain || !domain.includes('.')) {
-      throw new Error('Please enter a valid work email or corporate domain (e.g. acme.com).');
-    }
-
-    const companyName = domain.split('.')[0].toUpperCase();
-    const ssoUser: User = {
-      id: '660000000000000000000005',
-      name: `${companyName} Corporate User`,
-      email: workEmailOrDomain.includes('@') ? workEmailOrDomain : `employee@${domain}`,
-      avatar: `https://api.dicebear.com/7.x/shapes/svg?seed=${domain}`,
-      role: `${companyName} Enterprise`,
-      authProvider: 'sso',
-      isPhoneVerified: true,
-      createdAt: new Date().toISOString(),
-    };
-
-    const token = `wm_jwt_sso_${Date.now()}`;
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(ssoUser));
-    localStorage.setItem(STORAGE_KEYS.TOKEN, token);
-
-    return { user: ssoUser, token };
   }
 
   // ==========================================
@@ -498,9 +244,9 @@ class AuthService {
   logout(): void {
     localStorage.removeItem(STORAGE_KEYS.USER);
     localStorage.removeItem(STORAGE_KEYS.TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.REMEMBER);
     sessionStorage.removeItem(STORAGE_KEYS.USER);
     sessionStorage.removeItem(STORAGE_KEYS.TOKEN);
-    sessionStorage.removeItem(STORAGE_KEYS.OTP_SESSION);
   }
 }
 

@@ -4,427 +4,242 @@ import SpendingChart from "../components/SpendingChart";
 import RecentTransactions from "../components/RecentTransactions";
 import FinancialHealthCard from "../components/FinancialHealthCard";
 import BankStatementModal from "../components/BankStatementModal";
-import { FileUp } from "lucide-react";
-
 import {
-    getTransactions,
-} from "../api/transactions";
-
-import type {
-    Transaction,
-} from "../api/transactions";
-
+    FileUp,
+    Wallet,
+    TrendingUp,
+    TrendingDown,
+    PiggyBank,
+    Info,
+    ShieldCheck,
+} from "lucide-react";
+import { getTransactions, type Transaction } from "../api/transactions";
 import { calculateFinancialHealth } from "../utils/financialHealth";
 import { useAuthStore } from "../store/useAuthStore";
 
 function Dashboard() {
     const { user } = useAuthStore();
-    const displayName = user?.name ? user.name.split(" ")[0] : "Nivish";
+    const displayName = user?.name ? user.name.split(" ")[0] : "User";
 
     const hour = new Date().getHours();
     const greeting =
         hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
 
-    /* =========================
-       STATE
-    ========================= */
+    const [transactions, setTransactions] = useState<Transaction[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [showStatementModal, setShowStatementModal] = useState(false);
+    const [error, setError] = useState("");
 
-    const [transactions, setTransactions] =
-        useState<Transaction[]>([]);
-
-    const [loading, setLoading] =
-        useState(true);
-
-    const [showStatementModal, setShowStatementModal] =
-        useState(false);
-
-    const [error, setError] =
-        useState("");
-
-
-    /* =========================
-       LOAD TRANSACTIONS
-    ========================= */
+    const loadTransactions = async () => {
+        try {
+            setLoading(true);
+            setError("");
+            const data = await getTransactions();
+            setTransactions(data || []);
+        } catch (err: any) {
+            console.error("Failed to load dashboard transactions:", err);
+            setError("Unable to load transaction records. Please check backend connection.");
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-
-        const loadTransactions = async () => {
-
-            try {
-
-                setLoading(true);
-
-                setError("");
-
-                const data =
-                    await getTransactions();
-
-                setTransactions(data);
-
-            } catch (error) {
-
-                console.error(
-                    "Failed to load dashboard transactions:",
-                    error
-                );
-
-                setError(
-                    "Unable to load financial data. Please make sure the backend is running."
-                );
-
-            } finally {
-
-                setLoading(false);
-
-            }
-        };
-
-
         loadTransactions();
-
     }, []);
 
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
 
-    /* =========================
-       CURRENT MONTH
-    ========================= */
-
-    const currentMonth =
-        new Date().getMonth();
-
-    const currentYear =
-        new Date().getFullYear();
-
-
-    /* =========================
-       MONTHLY TRANSACTIONS
-    ========================= */
-
-    const monthlyTransactions =
-        useMemo(() => {
-
-            return transactions.filter(
-                (transaction) => {
-
-                    const transactionDate =
-                        new Date(
-                            transaction.date
-                        );
-
-                    if (
-                        Number.isNaN(
-                            transactionDate.getTime()
-                        )
-                    ) {
-                        return false;
-                    }
-
-                    return (
-                        transactionDate.getMonth() ===
-                        currentMonth &&
-                        transactionDate.getFullYear() ===
-                        currentYear
-                    );
-                }
+    const monthlyTransactions = useMemo(() => {
+        return transactions.filter((transaction) => {
+            const rawDate = transaction.date || transaction.transactionDate;
+            if (!rawDate) return false;
+            const transactionDate = new Date(rawDate);
+            if (Number.isNaN(transactionDate.getTime())) return false;
+            return (
+                transactionDate.getMonth() === currentMonth &&
+                transactionDate.getFullYear() === currentYear
             );
+        });
+    }, [transactions, currentMonth, currentYear]);
 
-        }, [
-            transactions,
-            currentMonth,
-            currentYear,
-        ]);
+    const monthlyIncome = useMemo(() => {
+        return monthlyTransactions
+            .filter((t) => t.type === "income")
+            .reduce((total, t) => total + (Number(t.amount) || 0), 0);
+    }, [monthlyTransactions]);
 
+    const monthlyExpenses = useMemo(() => {
+        return monthlyTransactions
+            .filter((t) => t.type === "expense")
+            .reduce((total, t) => total + (Number(t.amount) || 0), 0);
+    }, [monthlyTransactions]);
 
-    /* =========================
-       MONTHLY INCOME
-    ========================= */
+    const monthlySavings = monthlyIncome - monthlyExpenses;
+    const savingsRate = monthlyIncome > 0 ? Math.round((monthlySavings / monthlyIncome) * 100) : 0;
 
-    const monthlyIncome =
-        monthlyTransactions
-            .filter(
-                (transaction) =>
-                    transaction.type ===
-                    "income"
-            )
-            .reduce(
-                (total, transaction) =>
-                    total + transaction.amount,
-                0
-            );
+    const totalIncome = useMemo(() => {
+        return transactions
+            .filter((t) => t.type === "income")
+            .reduce((total, t) => total + (Number(t.amount) || 0), 0);
+    }, [transactions]);
 
+    const totalExpenses = useMemo(() => {
+        return transactions
+            .filter((t) => t.type === "expense")
+            .reduce((total, t) => total + (Number(t.amount) || 0), 0);
+    }, [transactions]);
 
-    /* =========================
-       MONTHLY EXPENSES
-    ========================= */
+    const totalBalance = totalIncome - totalExpenses;
 
-    const monthlyExpenses =
-        monthlyTransactions
-            .filter(
-                (transaction) =>
-                    transaction.type ===
-                    "expense"
-            )
-            .reduce(
-                (total, transaction) =>
-                    total + transaction.amount,
-                0
-            );
-
-
-    /* =========================
-       MONTHLY SAVINGS
-    ========================= */
-
-    const monthlySavings =
-        monthlyIncome -
-        monthlyExpenses;
-
-
-    /* =========================
-       SAVINGS RATE
-    ========================= */
-
-    const savingsRate =
-        monthlyIncome > 0
-            ? Math.round(
-                (monthlySavings /
-                    monthlyIncome) *
-                100
-            )
-            : 0;
-
-
-    /* =========================
-       TOTAL BALANCE
-    ========================= */
-
-    const totalIncome =
-        transactions
-            .filter(
-                (transaction) =>
-                    transaction.type ===
-                    "income"
-            )
-            .reduce(
-                (total, transaction) =>
-                    total + transaction.amount,
-                0
-            );
-
-
-    const totalExpenses =
-        transactions
-            .filter(
-                (transaction) =>
-                    transaction.type ===
-                    "expense"
-            )
-            .reduce(
-                (total, transaction) =>
-                    total + transaction.amount,
-                0
-            );
-
-
-    const totalBalance =
-        totalIncome -
-        totalExpenses;
-
-
-    /* =========================
-       FINANCIAL HEALTH REPORT
-    ========================= */
-
-    const healthReport =
-        useMemo(() => {
-            return calculateFinancialHealth(transactions);
-        }, [transactions]);
-
-
-    /* =========================
-       LOADING STATE
-    ========================= */
+    const healthReport = useMemo(() => {
+        return calculateFinancialHealth(transactions);
+    }, [transactions]);
 
     if (loading) {
-
         return (
-            <div className="dashboard">
-
-                <div className="dashboard-header">
-
-                    <div>
-
-                        <h1>
-                            Hi,
-                        </h1>
-                        <p>
-                            Loading your financial overview...
-                        </p>
-
-                    </div>
-
+            <div className="wm-page-wrapper">
+                <div className="wm-page-header">
+                    <div className="wm-skeleton" style={{ width: "240px", height: "32px", marginBottom: "8px" }} />
+                    <div className="wm-skeleton" style={{ width: "380px", height: "18px" }} />
                 </div>
-
+                <div className="wm-stats-grid">
+                    {[1, 2, 3, 4].map((i) => (
+                        <div key={i} className="wm-skeleton-card" />
+                    ))}
+                </div>
             </div>
         );
     }
 
-
-    /* =========================
-       DASHBOARD
-    ========================= */
+    const isFreshUser = transactions.length === 0;
 
     return (
-
-        <div className="dashboard">
-
-
-            {/* =========================
-                HEADER
-            ========================= */}
-
-            <div className="dashboard-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "12px" }}>
-
+        <div className="wm-page-wrapper">
+            {/* Header Area */}
+            <div className="wm-page-header">
                 <div>
-
-                    <h1>
+                    <h1 className="wm-page-title">
                         {greeting}, {displayName} 👋
                     </h1>
-
-                    <p>
-                        Here's your financial overview.
+                    <p className="wm-page-subtitle">
+                        Here is your real-time financial command center. All metrics are calculated 100% from your data.
                     </p>
-
                 </div>
 
-                <button
-                    type="button"
-                    onClick={() => setShowStatementModal(true)}
-                    style={{
-                        display: "inline-flex",
-                        alignItems: "center",
-                        gap: 8,
-                        backgroundColor: "#635bff",
-                        color: "#ffffff",
-                        border: "none",
-                        borderRadius: "8px",
-                        padding: "10px 16px",
-                        fontSize: "14px",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        boxShadow: "0 2px 4px rgba(99, 91, 255, 0.2)",
-                        fontFamily: "inherit",
-                        transition: "all 0.15s ease"
-                    }}
-                    id="btn-dashboard-upload-statement"
-                >
-                    <FileUp size={16} />
-                    <span>Upload Bank Statement</span>
-                </button>
-
+                <div className="wm-header-actions">
+                    <button
+                        type="button"
+                        onClick={() => setShowStatementModal(true)}
+                        className="wm-btn-primary"
+                        id="btn-dashboard-upload-statement"
+                    >
+                        <FileUp size={16} />
+                        <span>Import Statement PDF</span>
+                    </button>
+                </div>
             </div>
 
-
-            {/* =========================
-                ERROR
-            ========================= */}
-
+            {/* Error Banner */}
             {error && (
-
-                <div
-                    className="form-error"
-                    style={{
-                        marginBottom: "20px",
-                    }}
-                >
-                    {error}
+                <div className="wm-alert wm-alert-error" style={{ marginBottom: "24px" }}>
+                    <Info size={16} />
+                    <span>{error}</span>
                 </div>
-
             )}
 
+            {/* Fresh User Guidance Banner */}
+            {isFreshUser && !error && (
+                <div className="wm-welcome-banner">
+                    <div className="wm-welcome-content">
+                        <div className="wm-welcome-badge">
+                            <ShieldCheck size={15} />
+                            <span>Zero Assumed Values Active</span>
+                        </div>
+                        <h3>Welcome to your clean financial dashboard!</h3>
+                        <p>
+                            All financial counters start at ₹0. To see your true cashflow, balances, and personalized health scores, import your bank statement PDF.
+                        </p>
+                    </div>
+                    <div className="wm-welcome-action">
+                        <button
+                            type="button"
+                            onClick={() => setShowStatementModal(true)}
+                            className="wm-btn-primary"
+                        >
+                            <FileUp size={16} />
+                            <span>Upload Bank Statement</span>
+                        </button>
+                    </div>
+                </div>
+            )}
 
-            {/* =========================
-                STAT CARDS
-            ========================= */}
-
-            <div className="stats-grid">
-
-
+            {/* Financial Summary Stat Cards */}
+            <div className="wm-stats-grid">
                 <StatCard
                     title="Total Balance"
-                    value={`₹${totalBalance.toLocaleString(
-                        "en-IN"
-                    )}`}
-                    subtitle="Across all transactions"
+                    value={`₹${totalBalance.toLocaleString("en-IN")}`}
+                    subtitle="Calculated: Total Income - Total Expenses"
+                    variant="balance"
+                    icon={<Wallet size={18} />}
+                    trend={isFreshUser ? { value: "₹0 Baseline", neutral: true } : { value: `${transactions.length} Total Txns`, isPositive: totalBalance >= 0 }}
                 />
-
 
                 <StatCard
                     title="Monthly Income"
-                    value={`₹${monthlyIncome.toLocaleString(
-                        "en-IN"
-                    )}`}
-                    subtitle="This month"
+                    value={`₹${monthlyIncome.toLocaleString("en-IN")}`}
+                    subtitle="Current month incoming credits"
+                    variant="income"
+                    icon={<TrendingUp size={18} />}
+                    trend={monthlyIncome > 0 ? { value: "+ Inflow", isPositive: true } : { value: "₹0 Inflow", neutral: true }}
                 />
-
 
                 <StatCard
                     title="Monthly Expenses"
-                    value={`₹${monthlyExpenses.toLocaleString(
-                        "en-IN"
-                    )}`}
-                    subtitle="This month"
+                    value={`₹${monthlyExpenses.toLocaleString("en-IN")}`}
+                    subtitle="Current month outgoing debits"
+                    variant="expense"
+                    icon={<TrendingDown size={18} />}
+                    trend={monthlyExpenses > 0 ? { value: "Active Outflow", isPositive: false } : { value: "₹0 Outflow", neutral: true }}
                 />
-
 
                 <StatCard
                     title="Monthly Savings"
-                    value={`₹${monthlySavings.toLocaleString(
-                        "en-IN"
-                    )}`}
-                    subtitle={`${savingsRate}% savings rate`}
+                    value={`₹${monthlySavings.toLocaleString("en-IN")}`}
+                    subtitle={monthlyIncome > 0 ? `${savingsRate}% savings rate` : "0% savings rate (Awaiting income)"}
+                    variant="savings"
+                    icon={<PiggyBank size={18} />}
+                    trend={{ value: `${savingsRate}% Rate`, isPositive: savingsRate >= 20, neutral: savingsRate === 0 }}
                 />
-
             </div>
 
-
-            {/* =========================
-                FINANCIAL HEALTH
-            ========================= */}
-
+            {/* Health Score & Diagnostics Widget */}
             <FinancialHealthCard
                 score={healthReport.score}
                 grade={healthReport.grade}
                 verdict={healthReport.verdict}
             />
 
-
-            {/* =========================
-                SPENDING CHART
-            ========================= */}
-
+            {/* Inflow vs Outflow Visual Analytics */}
             <SpendingChart transactions={transactions} />
 
-
-            {/* =========================
-                RECENT TRANSACTIONS
-            ========================= */}
-
+            {/* Recent Activity List */}
             <RecentTransactions
                 transactions={transactions}
+                onOpenStatementModal={() => setShowStatementModal(true)}
             />
 
+            {/* Statement Import Modal */}
             <BankStatementModal
                 isOpen={showStatementModal}
                 onClose={() => setShowStatementModal(false)}
-                onImportSuccess={(newTxs) => {
-                    setTransactions((prev) => [...newTxs, ...prev]);
+                onImportSuccess={(_newTxs) => {
+                    loadTransactions();
                 }}
             />
-
         </div>
     );
 }
-
 
 export default Dashboard;

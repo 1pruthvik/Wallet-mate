@@ -1,25 +1,17 @@
 import React, { useState } from 'react';
 import { Check, AlertCircle, Loader2 } from 'lucide-react';
 import PasswordInput from './PasswordInput';
-import AuthDivider from './AuthDivider';
-import SocialAuthButtons from './SocialAuthButtons';
 import { useAuthStore } from '../../store/useAuthStore';
 
 interface LoginFormProps {
   onSwitchToSignup: () => void;
-  onSwitchToPhoneAuth: () => void;
   onSwitchToForgotPassword: () => void;
-  onOpenPasskey: () => void;
-  onOpenSSO: () => void;
   onSuccess: () => void;
 }
 
 export const LoginForm: React.FC<LoginFormProps> = ({
   onSwitchToSignup,
-  onSwitchToPhoneAuth,
   onSwitchToForgotPassword,
-  onOpenPasskey,
-  onOpenSSO,
   onSuccess,
 }) => {
   const [email, setEmail] = useState('');
@@ -27,7 +19,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   const [rememberMe, setRememberMe] = useState(true);
   const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string }>({});
 
-  const { loginWithEmail, signInWithGoogle, isLoading, error, clearError } = useAuthStore();
+  const { loginWithEmail, isLoading, error, clearError } = useAuthStore();
 
   const validateForm = () => {
     const errors: { email?: string; password?: string } = {};
@@ -57,16 +49,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
     try {
       await loginWithEmail(email, password, rememberMe);
-      onSuccess();
-    } catch {
-      // Error handled by store
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    clearError();
-    try {
-      await signInWithGoogle();
       onSuccess();
     } catch {
       // Error handled by store
@@ -182,18 +164,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({
             <span>Sign in</span>
           )}
         </button>
-
-        {/* Alternative Auth Divider */}
-        <AuthDivider text="Or sign in with" />
-
-        {/* Alternative Auth Buttons */}
-        <SocialAuthButtons
-          onGoogleClick={handleGoogleSignIn}
-          onPhoneClick={onSwitchToPhoneAuth}
-          onPasskeyClick={onOpenPasskey}
-          onSSOClick={onOpenSSO}
-          disabled={isLoading}
-        />
       </form>
 
       {/* Footer Switch */}

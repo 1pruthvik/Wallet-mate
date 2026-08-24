@@ -27,7 +27,7 @@ export interface HealthRecommendation {
 
 export interface FinancialHealthReport {
     score: number;
-    grade: "Excellent" | "Good" | "Fair" | "Critical";
+    grade: "Excellent" | "Good" | "Fair" | "Critical" | "Awaiting Data";
     verdict: string;
     monthlyIncome: number;
     monthlyExpenses: number;
@@ -45,9 +45,9 @@ export const calculateFinancialHealth = (
 ): FinancialHealthReport => {
     if (!transactions || transactions.length === 0) {
         return {
-            score: 50,
-            grade: "Fair",
-            verdict: "Add your income and expenses to unlock your personalized Financial Health diagnostics.",
+            score: 0,
+            grade: "Awaiting Data",
+            verdict: "No transactions recorded yet. Upload a bank statement or add transactions to calculate your Financial Health Score.",
             monthlyIncome: 0,
             monthlyExpenses: 0,
             monthlySavings: 0,
@@ -58,55 +58,55 @@ export const calculateFinancialHealth = (
                 {
                     id: "savings",
                     title: "Savings & Accumulation",
-                    score: 15,
+                    score: 0,
                     maxScore: 35,
-                    percentage: 43,
-                    status: "moderate",
+                    percentage: 0,
+                    status: "warning",
                     description: "Track your monthly surplus to build an emergency fund.",
                 },
                 {
                     id: "discipline",
                     title: "Expense Control",
-                    score: 15,
+                    score: 0,
                     maxScore: 30,
-                    percentage: 50,
-                    status: "moderate",
+                    percentage: 0,
+                    status: "warning",
                     description: "Keep essential living costs within reasonable boundaries.",
                 },
                 {
                     id: "balance",
                     title: "Spending Balance",
-                    score: 10,
+                    score: 0,
                     maxScore: 20,
-                    percentage: 50,
-                    status: "moderate",
+                    percentage: 0,
+                    status: "warning",
                     description: "Maintain a healthy balance between essentials and lifestyle.",
                 },
                 {
                     id: "runway",
                     title: "Cashflow Buffer",
-                    score: 10,
+                    score: 0,
                     maxScore: 15,
-                    percentage: 67,
-                    status: "good",
+                    percentage: 0,
+                    status: "warning",
                     description: "Ensures financial resilience against unexpected costs.",
                 },
             ],
             insights: [
                 {
                     type: "neutral",
-                    title: "Awaiting Data",
-                    message: "Import bank statements or add transactions to generate your real-time health score.",
+                    title: "Awaiting Transaction Data",
+                    message: "Upload a bank statement PDF or log your daily income and expenses to unlock instant financial diagnostics.",
                 },
             ],
             recommendations: [
                 {
                     id: "rec-1",
                     title: "Import Bank Statement",
-                    impact: "+20 Health Pts",
+                    impact: "First Step",
                     difficulty: "Easy",
                     category: "Setup",
-                    action: "Upload your latest statement PDF to automatically analyze your cashflow.",
+                    action: "Upload your latest bank statement PDF to automatically calculate your cashflow and savings health.",
                 },
             ],
         };
