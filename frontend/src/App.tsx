@@ -63,6 +63,11 @@ function App() {
           />
 
           <Route
+            path="/academy"
+            element={<Learning />}
+          />
+
+          <Route
             path="/mentor"
             element={<Mentor />}
           />

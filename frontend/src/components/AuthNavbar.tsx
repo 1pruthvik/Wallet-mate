@@ -31,7 +31,7 @@ export const AuthNavbar: React.FC = () => {
     { label: 'Dashboard', path: '/dashboard', icon: <LayoutDashboard size={16} /> },
     { label: 'Transactions', path: '/transactions', icon: <ReceiptText size={16} /> },
     { label: 'Health Engine', path: '/financial-health', icon: <Activity size={16} /> },
-    { label: 'Learning', path: '/learning', icon: <GraduationCap size={16} /> },
+    { label: 'Academy', path: '/learning', icon: <GraduationCap size={16} /> },
     { label: 'AI Mentor', path: '/mentor', icon: <Sparkles size={16} /> },
     { label: 'Trading', path: '/trading', icon: <TrendingUp size={16} /> },
   ];
