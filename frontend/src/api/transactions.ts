@@ -67,6 +67,7 @@ interface SummaryResponse {
 interface ParseStatementResponse {
     success: boolean;
     count: number;
+    pagesProcessed?: number;
     fileName: string;
     transactions: Omit<Transaction, "_id">[];
     message?: string;
@@ -153,7 +154,7 @@ export const deleteTransaction = async (id: string): Promise<boolean> => {
 
 export const parseBankStatement = async (
     file: File
-): Promise<{ count: number; fileName: string; transactions: Omit<Transaction, "_id">[] }> => {
+): Promise<{ count: number; fileName: string; pagesProcessed?: number; transactions: Omit<Transaction, "_id">[] }> => {
     const formData = new FormData();
     formData.append("statement", file);
 
@@ -169,6 +170,7 @@ export const parseBankStatement = async (
 
     return {
         count: response.data.count,
+        pagesProcessed: response.data.pagesProcessed,
         fileName: response.data.fileName,
         transactions: response.data.transactions,
     };
@@ -177,14 +179,20 @@ export const parseBankStatement = async (
 export const importBatchTransactions = async (
     transactions: Omit<Transaction, "_id">[],
     fileName?: string
-): Promise<{ count: number; message: string; transactions: Transaction[] }> => {
+): Promise<{ count: number; message: string; transactions: Transaction[]; duplicatesSkipped: number; totalExtracted: number }> => {
     const response = await apiClient.post<ImportBatchResponse>(
         "/transactions/import",
         { transactions, fileName }
     );
+    const newCount = response.data.count || response.data.data?.newTransactions || response.data.transactions?.length || 0;
+    const dups = response.data.data?.duplicatesSkipped || 0;
+    const total = response.data.data?.totalExtracted || transactions.length;
+
     return {
-        count: response.data.count || response.data.data?.newTransactions || response.data.transactions?.length || 0,
-        message: response.data.message || "Import completed successfully.",
+        count: newCount,
+        message: response.data.message || `Import complete. ${newCount} new transactions added.`,
         transactions: response.data.transactions || response.data.data?.transactions || [],
+        duplicatesSkipped: dups,
+        totalExtracted: total,
     };
 };

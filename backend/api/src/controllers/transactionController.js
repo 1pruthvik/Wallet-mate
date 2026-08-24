@@ -393,13 +393,14 @@ const parseStatement = async (req, res) => {
         const mimetype = req.file.mimetype;
         const originalname = req.file.originalname;
 
-        const transactions = await parseStatementBuffer(buffer, mimetype, originalname);
+        const result = await parseStatementBuffer(buffer, mimetype, originalname);
 
         return res.json({
             success: true,
-            count: transactions.length,
-            fileName: originalname,
-            transactions,
+            count: result.transactions.length,
+            pagesProcessed: result.pagesProcessed || 1,
+            fileName: result.fileName || originalname,
+            transactions: result.transactions,
         });
     } catch (error) {
         console.error("Statement parsing error:", error);

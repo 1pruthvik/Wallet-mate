@@ -234,8 +234,8 @@ function Dashboard() {
             <BankStatementModal
                 isOpen={showStatementModal}
                 onClose={() => setShowStatementModal(false)}
-                onImportSuccess={(newTxs) => {
-                    setTransactions((prev) => [...newTxs, ...prev]);
+                onImportSuccess={(_newTxs) => {
+                    loadTransactions();
                 }}
             />
         </div>

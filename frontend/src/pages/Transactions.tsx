@@ -531,10 +531,13 @@ function Transactions() {
             <BankStatementModal
                 isOpen={showStatementModal}
                 onClose={() => setShowStatementModal(false)}
-                onImportSuccess={(newTxs) => {
-                    setTransactions((prev) => [...newTxs, ...prev]);
-                    setFeedbackMsg({ text: `Imported ${newTxs.length} transactions successfully.`, type: "success" });
-                    setTimeout(() => setFeedbackMsg(null), 4000);
+                onImportSuccess={(_newTxs, summary) => {
+                    loadData();
+                    const msg = summary
+                        ? `${summary.newCount} new transactions imported from statement${summary.duplicateCount > 0 ? ` (${summary.duplicateCount} duplicates skipped)` : ""}.`
+                        : "Statement imported successfully.";
+                    setFeedbackMsg({ text: msg, type: "success" });
+                    setTimeout(() => setFeedbackMsg(null), 5000);
                 }}
             />
         </div>
