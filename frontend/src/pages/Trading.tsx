@@ -1,8 +1,11 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { getMarketStatus } from "../api/ai";
 import type { MarketStatusResponse } from "../api/ai";
+import { getTransactionSummary } from "../api/transactions";
 import { useAuthStore } from "../store/useAuthStore";
 import { useMarketWebSocket } from "../hooks/useMarketWebSocket";
+import LiveMarketWatchlist from "../components/LiveMarketWatchlist";
+import GeminiStockAdvisor from "../components/GeminiStockAdvisor";
 import {
     DollarSign,
     Briefcase,
@@ -222,6 +225,25 @@ const Trading: React.FC = () => {
         fetchStatus();
     }, []);
 
+    // Automatically sync bank statement uploaded savings to paper trading available cash
+    useEffect(() => {
+        const syncBankStatementSavings = async () => {
+            try {
+                const summary = await getTransactionSummary();
+                if (summary && (summary.monthlySavings > 0 || summary.totalBalance > 0)) {
+                    const realSavings = summary.monthlySavings > 0 ? summary.monthlySavings : summary.totalBalance;
+                    const savedCash = localStorage.getItem(`finmitra_portfolio_cash_${userStorageKey}`);
+                    if (!savedCash || parseFloat(savedCash) === 100000 || positions.length === 0) {
+                        setCash(realSavings);
+                    }
+                }
+            } catch (err) {
+                console.warn("Bank statement summary sync skipped:", err);
+            }
+        };
+        syncBankStatementSavings();
+    }, [userStorageKey, positions.length]);
+
     // Portfolio metrics
     const portfolioStockValue = useMemo(() => {
         return positions.reduce((sum, p) => sum + p.shares * p.currentPrice, 0);
@@ -435,6 +457,9 @@ const Trading: React.FC = () => {
                 </div>
             </div>
 
+            {/* Gemini AI Real-Time Stock Advisor & Savings Recommendation */}
+            <GeminiStockAdvisor userBalance={cash} onTrade={openTradeModal} />
+
             {/* View Switcher Tabs */}
             <div className="wm-tab-pills" style={{ marginBottom: "20px" }}>
                 <button
@@ -462,7 +487,9 @@ const Trading: React.FC = () => {
 
             {/* TAB 1: WATCHLIST */}
             {activeTab === "watchlist" && (
-                <div className="wm-card wm-table-card">
+                <>
+                    <LiveMarketWatchlist onTrade={openTradeModal} />
+                    <div className="wm-card wm-table-card">
                     {/* Sector Filters */}
                     <div className="wm-sector-filter-bar">
                         {sectors.map((sec) => (
@@ -543,6 +570,7 @@ const Trading: React.FC = () => {
                         </table>
                     </div>
                 </div>
+                </>
             )}
 
             {/* TAB 2: OPEN POSITIONS */}

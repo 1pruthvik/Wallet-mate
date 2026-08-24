@@ -12,6 +12,10 @@ interface InstrumentSearchResult {
     asset_type: string;
 }
 
+interface LiveMarketWatchlistProps {
+    onTrade?: (stock: { symbol: string; company: string; sector: string; currentPrice: number; change: number; changePct: number; expectedReturn: number; probabilityUp: number; confidence: "HIGH_CONFIDENCE" | "MEDIUM_CONFIDENCE" | "LOW_CONFIDENCE"; risk: "Low" | "Medium" | "High" }, action: "BUY" | "SELL") => void;
+}
+
 const DEFAULT_TOP_20_STOCKS = [
     "RELIANCE.NS",
     "TCS.NS",
@@ -42,7 +46,7 @@ const KNOWN_INDIAN_SYMBOLS = new Set([
     "MARUTI", "SUNPHARMA", "TITAN", "ADANIENT", "WIPRO"
 ]);
 
-export const LiveMarketWatchlist: React.FC = () => {
+export const LiveMarketWatchlist: React.FC<LiveMarketWatchlistProps> = ({ onTrade }) => {
     const { user } = useAuthStore();
     const userKey = user?.id || "default_user";
 
@@ -399,6 +403,80 @@ export const LiveMarketWatchlist: React.FC = () => {
                                         Loading real-time tick...
                                     </div>
                                 )}
+                            </div>
+
+                            {/* Buy / Sell Action Buttons */}
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginTop: "10px", marginBottom: "10px" }}>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (onTrade) {
+                                            onTrade({
+                                                symbol: cleanSym,
+                                                company: quote?.company || `${cleanSym} Ltd`,
+                                                sector: inr ? "NSE India" : "US Market",
+                                                currentPrice: quote?.price || 1000,
+                                                change: quote?.change || 0,
+                                                changePct: quote?.change_percent || 0,
+                                                expectedReturn: 5.5,
+                                                probabilityUp: 75,
+                                                confidence: "HIGH_CONFIDENCE",
+                                                risk: "Medium"
+                                            }, "BUY");
+                                        }
+                                    }}
+                                    style={{
+                                        backgroundColor: "#16a34a",
+                                        color: "#ffffff",
+                                        border: "none",
+                                        borderRadius: "8px",
+                                        padding: "6px 10px",
+                                        fontSize: "0.78rem",
+                                        fontWeight: 700,
+                                        cursor: "pointer",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        gap: "4px"
+                                    }}
+                                >
+                                    Buy
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (onTrade) {
+                                            onTrade({
+                                                symbol: cleanSym,
+                                                company: quote?.company || `${cleanSym} Ltd`,
+                                                sector: inr ? "NSE India" : "US Market",
+                                                currentPrice: quote?.price || 1000,
+                                                change: quote?.change || 0,
+                                                changePct: quote?.change_percent || 0,
+                                                expectedReturn: 5.5,
+                                                probabilityUp: 75,
+                                                confidence: "HIGH_CONFIDENCE",
+                                                risk: "Medium"
+                                            }, "SELL");
+                                        }
+                                    }}
+                                    style={{
+                                        backgroundColor: "#ef4444",
+                                        color: "#ffffff",
+                                        border: "none",
+                                        borderRadius: "8px",
+                                        padding: "6px 10px",
+                                        fontSize: "0.78rem",
+                                        fontWeight: 700,
+                                        cursor: "pointer",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        gap: "4px"
+                                    }}
+                                >
+                                    Sell
+                                </button>
                             </div>
 
                             <div style={{
