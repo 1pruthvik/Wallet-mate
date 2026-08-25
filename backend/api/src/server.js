@@ -60,8 +60,19 @@ app.get("/api/health", (req, res) => {
     });
 });
 
-// Connect to MongoDB
+// Connect to MongoDB middleware for serverless environment compatibility
+app.use(async (req, res, next) => {
+    try {
+        await connectDB();
+    } catch (err) {
+        console.error("MongoDB connection middleware error:", err);
+    }
+    next();
+});
+
+// Initial DB Connection Attempt
 connectDB();
+
 
 // Global Error Handler
 app.use((err, req, res, next) => {
