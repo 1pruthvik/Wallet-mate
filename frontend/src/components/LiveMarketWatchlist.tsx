@@ -55,7 +55,7 @@ export const LiveMarketWatchlist: React.FC<LiveMarketWatchlistProps> = ({ onTrad
     // User watchlist slots up to 20
     const [watchlist, setWatchlist] = useState<string[]>(() => {
         try {
-            const saved = localStorage.getItem(`finmitra_user_watchlist_v2_${userKey}`);
+            const saved = localStorage.getItem(`walletmate_user_watchlist_v2_${userKey}`) || localStorage.getItem(`finmitra_user_watchlist_v2_${userKey}`);
             return saved ? JSON.parse(saved) : DEFAULT_TOP_20_STOCKS;
         } catch {
             return DEFAULT_TOP_20_STOCKS;
@@ -70,7 +70,7 @@ export const LiveMarketWatchlist: React.FC<LiveMarketWatchlistProps> = ({ onTrad
     // Sync watchlist to localStorage
     useEffect(() => {
         try {
-            localStorage.setItem(`finmitra_user_watchlist_v2_${userKey}`, JSON.stringify(watchlist));
+            localStorage.setItem(`walletmate_user_watchlist_v2_${userKey}`, JSON.stringify(watchlist));
         } catch {
             // Ignore
         }

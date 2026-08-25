@@ -4,48 +4,48 @@
 ========================================================= */
 
 :root {
-  --wm-primary: #635bff;
-  --wm-primary-hover: #5348e2;
-  --wm-primary-active: #4838c7;
-  --wm-primary-soft: #f4f2ff;
-  --wm-primary-soft-hover: #ebe7fe;
-  --wm-primary-border: #d4ceff;
-  --wm-focus-ring: rgba(99, 91, 255, 0.22);
+  --wm-primary: #0284c7;
+  --wm-primary-hover: #0369a1;
+  --wm-primary-active: #075985;
+  --wm-primary-soft: #f0f9ff;
+  --wm-primary-soft-hover: #e0f2fe;
+  --wm-primary-border: #bae6fd;
+  --wm-focus-ring: rgba(14, 165, 233, 0.25);
 
   --wm-bg: #ffffff;
-  --wm-bg-subtle: #f8f9fa;
+  --wm-bg-subtle: #f8fafc;
   --wm-card-bg: #ffffff;
 
-  --wm-text-primary: #0a2540;
-  --wm-text-secondary: #425466;
-  --wm-text-muted: #697386;
-  --wm-text-placeholder: #8792a2;
+  --wm-text-primary: #0f172a;
+  --wm-text-secondary: #334155;
+  --wm-text-muted: #64748b;
+  --wm-text-placeholder: #94a3b8;
 
-  --wm-border: #e3e8ee;
-  --wm-border-hover: #c1c9d2;
-  --wm-border-strong: #0a2540;
+  --wm-border: #e2e8f0;
+  --wm-border-hover: #cbd5e1;
+  --wm-border-strong: #0f172a;
 
-  --wm-success: #00875a;
-  --wm-success-bg: #e6f6ee;
-  --wm-success-border: #abf5d1;
+  --wm-success: #059669;
+  --wm-success-bg: #ecfdf5;
+  --wm-success-border: #a7f3d0;
 
-  --wm-error: #df1b41;
-  --wm-error-bg: #fde8e8;
-  --wm-error-border: #f8b4b4;
+  --wm-error: #dc2626;
+  --wm-error-bg: #fef2f2;
+  --wm-error-border: #fecaca;
 
-  --wm-warning: #b76e00;
-  --wm-warning-bg: #fff8e1;
+  --wm-warning: #d97706;
+  --wm-warning-bg: #fffbeb;
 
-  --wm-radius-sm: 6px;
-  --wm-radius-md: 8px;
-  --wm-radius-lg: 12px;
-  --wm-radius-xl: 16px;
+  --wm-radius-sm: 8px;
+  --wm-radius-md: 10px;
+  --wm-radius-lg: 14px;
+  --wm-radius-xl: 18px;
 
-  --wm-shadow-card: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -2px rgba(0, 0, 0, 0.02), 0 0 0 1px rgba(0, 0, 0, 0.03);
+  --wm-shadow-card: 0 4px 16px -2px rgba(15, 23, 42, 0.05), 0 0 0 1px rgba(226, 232, 240, 0.8);
   --wm-shadow-dropdown: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
-  --wm-shadow-btn: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --wm-shadow-btn: 0 2px 8px rgba(2, 132, 199, 0.25);
 
-  --wm-font: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  --wm-font: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
 }
 
 /* Base auth page container */
@@ -56,7 +56,7 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background-color: var(--wm-bg);
+  background-color: var(--wm-bg-subtle);
   font-family: var(--wm-font);
   color: var(--wm-text-primary);
   padding: 40px 20px;
@@ -72,7 +72,7 @@
   left: 0;
   right: 0;
   height: 380px;
-  background: radial-gradient(circle at 50% 0%, rgba(99, 91, 255, 0.035) 0%, rgba(255, 255, 255, 0) 70%);
+  background: radial-gradient(circle at 50% 0%, rgba(14, 165, 233, 0.08) 0%, rgba(255, 255, 255, 0) 70%);
   pointer-events: none;
   z-index: 0;
 }

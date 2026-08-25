@@ -99,7 +99,7 @@ const Mentor: React.FC = () => {
                 {
                     id: "msg-welcome",
                     sender: "mentor",
-                    text: `Hello ${userName}! I am **FinMitra AI Mentor**, your personal financial intelligence companion.\n\nI analyze your real-time bank cashflow, assess affordability (*Can I afford this?*), detect financial fraud, and formulate optimal savings plans. Every recommendation is 100% grounded in your stored data.\n\nHow can I help you today?`,
+                    text: `Hello ${userName}! I am **Wallet-mate AI Mentor**, your personal financial intelligence companion.\n\nI analyze your real-time bank cashflow, assess affordability (*Can I afford this?*), detect financial fraud, and formulate optimal savings plans. Every recommendation is 100% grounded in your stored data.\n\nHow can I help you today?`,
                     timestamp: "Just now",
                 },
             ]);
@@ -290,7 +290,7 @@ const Mentor: React.FC = () => {
             {/* Header */}
             <div className="wm-page-header">
                 <div>
-                    <h1 className="wm-page-title">FinMitra AI Financial Mentor</h1>
+                    <h1 className="wm-page-title">Wallet-mate AI Financial Mentor</h1>
                     <p className="wm-page-subtitle">
                         Interactive financial intelligence grounded 100% in your real cashflow and transactions.
                     </p>

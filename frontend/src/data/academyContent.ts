@@ -1214,7 +1214,7 @@ export const WEEKLY_CHALLENGES: WeeklyChallenge[] = [
     {
         id: "wc-3",
         title: "Bank Statement Health Sync",
-        description: "Import this month's bank statement into FinMitra to evaluate your automated health score and personalized recommendations.",
+        description: "Import this month's bank statement into Wallet-mate to evaluate your automated health score and personalized recommendations.",
         xpReward: 75
     },
     {

@@ -168,7 +168,7 @@ const Trading: React.FC = () => {
     // User-scoped simulator cash
     const [cash, setCash] = useState<number>(() => {
         try {
-            const saved = localStorage.getItem(`finmitra_portfolio_cash_${userStorageKey}`);
+            const saved = localStorage.getItem(`walletmate_portfolio_cash_${userStorageKey}`) || localStorage.getItem(`finmitra_portfolio_cash_${userStorageKey}`);
             return saved ? parseFloat(saved) : 100000;
         } catch {
             return 100000;
@@ -178,7 +178,7 @@ const Trading: React.FC = () => {
     // Positions start clean [] for fresh users
     const [positions, setPositions] = useState<PortfolioPosition[]>(() => {
         try {
-            const saved = localStorage.getItem(`finmitra_portfolio_positions_${userStorageKey}`);
+            const saved = localStorage.getItem(`walletmate_portfolio_positions_${userStorageKey}`) || localStorage.getItem(`finmitra_portfolio_positions_${userStorageKey}`);
             return saved ? JSON.parse(saved) : [];
         } catch {
             return [];
@@ -188,7 +188,7 @@ const Trading: React.FC = () => {
     // Trade logs start clean [] for fresh users
     const [tradeLogs, setTradeLogs] = useState<TradeLog[]>(() => {
         try {
-            const saved = localStorage.getItem(`finmitra_trade_logs_${userStorageKey}`);
+            const saved = localStorage.getItem(`walletmate_trade_logs_${userStorageKey}`) || localStorage.getItem(`finmitra_trade_logs_${userStorageKey}`);
             return saved ? JSON.parse(saved) : [];
         } catch {
             return [];
@@ -205,9 +205,9 @@ const Trading: React.FC = () => {
 
     useEffect(() => {
         try {
-            localStorage.setItem(`finmitra_portfolio_cash_${userStorageKey}`, cash.toString());
-            localStorage.setItem(`finmitra_portfolio_positions_${userStorageKey}`, JSON.stringify(positions));
-            localStorage.setItem(`finmitra_trade_logs_${userStorageKey}`, JSON.stringify(tradeLogs));
+            localStorage.setItem(`walletmate_portfolio_cash_${userStorageKey}`, cash.toString());
+            localStorage.setItem(`walletmate_portfolio_positions_${userStorageKey}`, JSON.stringify(positions));
+            localStorage.setItem(`walletmate_trade_logs_${userStorageKey}`, JSON.stringify(tradeLogs));
         } catch {
             // ignore
         }
@@ -232,7 +232,7 @@ const Trading: React.FC = () => {
                 const summary = await getTransactionSummary();
                 if (summary && (summary.monthlySavings > 0 || summary.totalBalance > 0)) {
                     const realSavings = summary.monthlySavings > 0 ? summary.monthlySavings : summary.totalBalance;
-                    const savedCash = localStorage.getItem(`finmitra_portfolio_cash_${userStorageKey}`);
+                    const savedCash = localStorage.getItem(`walletmate_portfolio_cash_${userStorageKey}`) || localStorage.getItem(`finmitra_portfolio_cash_${userStorageKey}`);
                     if (!savedCash || parseFloat(savedCash) === 100000 || positions.length === 0) {
                         setCash(realSavings);
                     }

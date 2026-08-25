@@ -37,7 +37,7 @@ const Profile: React.FC = () => {
     // Goals start clean [] for fresh users
     const [goals, setGoals] = useState<FinancialGoal[]>(() => {
         try {
-            const saved = localStorage.getItem(`finmitra_user_goals_${userStorageKey}`);
+            const saved = localStorage.getItem(`walletmate_user_goals_${userStorageKey}`) || localStorage.getItem(`finmitra_user_goals_${userStorageKey}`);
             return saved ? JSON.parse(saved) : [];
         } catch {
             return [];
@@ -66,7 +66,7 @@ const Profile: React.FC = () => {
 
     useEffect(() => {
         try {
-            localStorage.setItem(`finmitra_user_goals_${userStorageKey}`, JSON.stringify(goals));
+            localStorage.setItem(`walletmate_user_goals_${userStorageKey}`, JSON.stringify(goals));
         } catch {
             // ignore
         }

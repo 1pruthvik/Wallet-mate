@@ -31,7 +31,7 @@ const FinancialHealthCard: React.FC<FinancialHealthCardProps> = ({
     }
 
     const deg = Math.round((roundedScore / 100) * 360);
-    const ringColor = roundedScore >= 75 ? "#10b981" : roundedScore >= 45 ? "#635bff" : roundedScore > 0 ? "#f59e0b" : "#94a3b8";
+    const ringColor = roundedScore >= 75 ? "#10b981" : roundedScore >= 45 ? "#0284c7" : roundedScore > 0 ? "#f59e0b" : "#94a3b8";
     const gradient = `conic-gradient(${ringColor} 0deg ${deg}deg, #f1f5f9 ${deg}deg 360deg)`;
 
     return (

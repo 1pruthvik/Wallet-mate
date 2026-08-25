@@ -77,7 +77,7 @@ const FinancialHealth: React.FC = () => {
         const encodedUri = encodeURI(csvContent);
         const link = document.createElement("a");
         link.setAttribute("href", encodedUri);
-        link.setAttribute("download", `FinMitra_Health_Engine_${report.period}.csv`);
+        link.setAttribute("download", `Wallet_Mate_Health_Engine_${report.period}.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);

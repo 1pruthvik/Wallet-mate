@@ -5,6 +5,7 @@ const morgan = require("morgan");
 const connectDB = require("./config/db");
 const authRoutes = require("./routes/authRoutes");
 const transactionRoutes = require("./routes/transactionRoutes");
+const academyRoutes = require("./routes/academyRoutes");
 require("dotenv").config();
 
 const app = express();
@@ -38,6 +39,7 @@ app.use(morgan("dev"));
  */
 app.use("/api/auth", authRoutes);
 app.use("/api/transactions", transactionRoutes);
+app.use("/api/academy", academyRoutes);
 
 // Health check
 app.get("/", (req, res) => {
