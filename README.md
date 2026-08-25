@@ -1,383 +1,263 @@
-# FinMitra — Personal Finance Management Platform
+# Wallet-Mate: Enterprise-Grade Financial Intelligence, Automated Ledger Extraction, and AI-Powered Capital Compounding Platform
 
-FinMitra is a personal finance application that helps users understand their spending, savings, investments, and overall financial health in one place.
-
-The system can import bank statements, analyze transactions, calculate financial health metrics, show market prices, simulate stock trading, and provide financial learning content based on the user's financial situation.
-
-The main goal is simple: **help users understand where their money is going and make better financial decisions.**
+Live Deployment: https://wallet-mate-frontend-wzty.onrender.com/
 
 ---
 
-## Project Architecture
+## 1. Executive Summary & Problem Statement
 
-FinMitra is split into three main parts:
+Personal financial management across modern economies is severely hindered by systemic data fragmentation, opaque banking exports, and an absence of contextual intelligence. Modern consumers and wealth builders face multiple compounding friction points:
 
-```text
-                ┌──────────────────────────────────┐
-                │       React + Vite Frontend      │
-                │                                  │
-                │ Dashboard | Health | Trading     │
-                │ Academy | Mentor | Profile       │
-                └────────────────┬─────────────────┘
-                                 │
-                    ┌────────────┴────────────┐
-                    │                         │
-          ┌─────────▼─────────┐     ┌────────▼─────────┐
-          │ Node.js / Express │     │ Python / FastAPI │
-          │                   │     │                  │
-          │ Authentication    │     │ Financial Health │
-          │ User Management   │     │ Market Data      │
-          │ Transactions      │     │ AI Features      │
-          │ PDF Processing    │     │                  │
-          └─────────┬─────────┘     └──────────────────┘
-                    │
-            ┌───────▼────────┐
-            │    MongoDB     │
-            │                │
-            │ Users          │
-            │ Transactions   │
-            │ Portfolio      │
-            └────────────────┘
+1. **Unstructured Data Silos and Ingestion Friction**: Retail banking institutions provide transaction records primarily as unstructured, proprietary PDF statements or non-standardized CSV exports. Manual reconciliation is error-prone, labor-intensive, and prone to duplicate entries across overlapping accounting cycles.
+2. **Superficial Ledgering Without Algorithmic Health Scoring**: Existing budgeting utilities merely categorize historical outflows without evaluating systemic financial resilience. They fail to quantify essential health dimensions such as liquidity runway, debt-to-surplus ratios, spending velocity, and emergency contingency solvency.
+3. **Information Asymmetry in Capital Allocation**: Retail investors lack access to institutional-grade time-series forecasting, algorithmic market risk assessment, and personalized portfolio optimization that factors in an individual's real-time discretionary liquidity.
+4. **Ungrounded Generic AI Advice**: Generalized conversational large language models hallucinate generic financial advice because they lack deterministic access to a user's isolated transactional ledger, verified financial knowledge bases, and live market quotes.
+
+**Wallet-Mate** addresses these challenges by delivering a decoupled, cloud-native microservices architecture. It combines deterministic PDF statement parsing, cryptographic data isolation, multi-pillar algorithmic financial scoring, real-time equity market forecasting, and Retrieval-Augmented Generation (RAG) via Google Gemini models.
+
+---
+
+## 2. System Architecture & Component Topography
+
+Wallet-Mate is designed as a distributed, decoupled multi-tier system optimized for horizontal scalability, stateless compute, and deterministic fault tolerance.
+
+### 2.1 High-Level Architecture Diagram
+
+```mermaid
+graph TD
+    subgraph Client_Layer ["Client Layer (Edge CDN)"]
+        UI["React 19 + TypeScript SPA<br/>Vite Build Engine / Responsive UI"]
+    end
+
+    subgraph Gateway_Layer ["Application & Data Layer (Node.js API)"]
+        API["Express.js Microservice Gateway<br/>Stateless JWT Authentication"]
+        Parser["PDF & CSV Parser Engine<br/>Regex Normalization & Deduplication"]
+        HealthEngine["Financial Health Scoring Engine<br/>4-Pillar Algorithmic Scorer"]
+        Tenancy["Multi-Tenant Isolation Layer<br/>userId Scoped Data Enforcers"]
+    end
+
+    subgraph Intelligence_Layer ["AI & Quantitative Service (FastAPI)"]
+        FastAPIApp["FastAPI REST & Async Runtime"]
+        MarketEngine["Market Data Service<br/>Live yfinance Integration"]
+        Predictor["Time-Series Forecasting Engine<br/>Trend & Volatility Modeling"]
+        RAGModule["RAG Vector Ingestion & Query Pipeline<br/>Domain Knowledge Chunking"]
+        GeminiClient["Google GenAI Integration<br/>Gemini 2.5 / 2.0 Flash Reasoning"]
+    end
+
+    subgraph Persistence_Layer ["Persistence & External Infrastructure"]
+        MongoDB[("MongoDB Atlas<br/>Multi-Tenant Document Collections")]
+        YahooFinance["Yahoo Finance Data Feed"]
+        GeminiAPI["Google AI Studio / Gemini API"]
+    end
+
+    UI -->|"HTTPS / REST / JSON"| API
+    UI -->|"HTTPS / REST / JSON"| FastAPIApp
+    API -->|"Mongoose ODM"| MongoDB
+    API --> Tenancy
+    Tenancy --> Parser
+    Tenancy --> HealthEngine
+    FastAPIApp --> MarketEngine
+    FastAPIApp --> Predictor
+    FastAPIApp --> RAGModule
+    FastAPIApp --> GeminiClient
+    MarketEngine -->|"Public API"| YahooFinance
+    GeminiClient -->|"gRPC / HTTPS"| GeminiAPI
 ```
 
-### Frontend
-
-Built using React, Vite and TypeScript. It provides the main interface where users can view their financial data, health score, portfolio, learning progress and other features.
-
-### Node.js Backend
-
-The Express backend handles authentication, users, transactions, bank statement uploads and communication with MongoDB.
-
-### Python AI Service
-
-The FastAPI service handles the more calculation-heavy and AI-related parts of the application, including financial health calculations, market data and Gemini-based analysis.
-
-### Database
-
-MongoDB stores user accounts, transactions and portfolio-related information.
-
----
-
-# Main Features
-
-## 1. Financial Health Dashboard
-
-FinMitra calculates a financial health score using eight areas:
-
-1. Savings & Accumulation — 25 points
-2. Expense Control — 20 points
-3. Spending Balance — 15 points
-4. Cashflow Buffer — 15 points
-5. Liquidity & Safety Net — 10 points
-6. Debt & Obligations — 5 points
-7. Income Stability — 5 points
-8. Goal Alignment — 5 points
-
-This gives the user a score out of 100 and shows which areas are doing well and which areas need attention.
-
-### Dashboard Metrics
-
-The dashboard includes:
-
-* Monthly surplus
-* Savings rate
-* Expense ratio
-* Number of transactions
-* Average daily spending
-* Emergency fund runway
-* Net cashflow trend
-
-The calculations are based on the transactions available for the logged-in user rather than using predefined demo numbers.
-
-### Spending Analysis
-
-Transactions are grouped into categories such as:
-
-* Needs
-* Wants
-* Savings
-
-The application also compares spending against the commonly used **50/30/20 budgeting guideline**.
-
----
-
-## 2. Financial Education Academy
-
-The Academy is designed to help users learn personal finance while using the application.
-
-It currently contains 11 learning areas:
-
-* Money Foundations
-* Cashflow Mastery
-* Budgeting Systems
-* Transaction Intelligence
-* Emergency Funds
-* Debt & Credit
-* Saving Systems
-* Investing Fundamentals
-* Tax-Aware Money
-* Behavioral Finance
-* Wealth & Financial Independence
-
-There are 24 initial lessons covering practical topics such as budgeting, emergency funds, debt management, saving and investing.
-
-Each lesson can include:
-
-* Short summary
-* Learning objectives
-* Explanation of the topic
-* Relevant formulas
-* Indian examples using ₹
-* Do/Don't recommendations
-* Multiple-choice questions
-* Practical actions
-
-Users need to score at least 80% in a lesson quiz to mark it as mastered.
-
-Completing practical actions can also give the user XP and contribute to their learning progress.
-
----
-
-## 3. Personalized Learning Recommendations
-
-The Academy is connected to the Financial Health Engine.
-
-This means the application can suggest learning topics based on the user's financial data.
-
-For example:
-
-| Financial Situation         | Suggested Topic                       |
-| --------------------------- | ------------------------------------- |
-| Low savings rate            | Pay Yourself First                    |
-| High EMI/debt burden        | Debt-to-Income Ratio & Debt Avalanche |
-| High discretionary spending | Needs vs Wants                        |
-| Frequent impulse purchases  | 48-Hour Cooling Rule                  |
-
-The idea is to make the learning content more relevant instead of showing the same lessons to every user.
-
----
-
-# 4. Financial Calculators
-
-FinMitra includes several basic financial calculators:
-
-* 50/30/20 Budget Calculator
-* Emergency Fund Calculator
-* SIP & Compound Growth Calculator
-* Debt-to-Income Ratio Calculator
-* 48-Hour Impulse Purchase Calculator
-
-There is also a searchable glossary containing common financial terms and formulas.
-
----
-
-# 5. Market Data & Trading Simulator
-
-FinMitra also includes a stock market section where users can experiment with investing without using real money.
-
-The application receives market price updates through WebSockets and displays prices for selected Indian stocks.
-
-Users can:
-
-* View stock prices
-* Buy stocks in the simulator
-* Sell stocks
-* Track their holdings
-* View their simulated portfolio
-* Use their calculated surplus as the basis for simulated trading capital
-
-### AI Stock Analysis
-
-Gemini is used to provide AI-based analysis using information available to the application.
-
-The AI can consider factors such as:
-
-* User's savings rate
-* Available cash surplus
-* Existing portfolio
-* Portfolio allocation
-
-The trading module is intended as a **simulation and learning feature**, not as a platform for executing real stock trades.
-
----
-
-# 6. Bank Statement Processing
-
-Users can upload supported bank statement PDFs.
-
-The backend extracts transaction information and converts it into a format that can be stored and analyzed by the application.
-
-The processing pipeline includes:
-
-```text
-Bank Statement PDF
-        ↓
-PDF Text Extraction
-        ↓
-Transaction Detection
-        ↓
-Date / Amount / Description
-        ↓
-Category Assignment
-        ↓
-Self-Transfer Detection
-        ↓
-MongoDB
-        ↓
-Financial Analysis
-```
-
-Self-transfers are identified where possible so that moving money between a user's own accounts does not incorrectly appear as income or additional spending.
-
----
-
-# Technology Stack
-
-### Frontend
-
-* React 18
-* Vite
-* TypeScript
-* Lucide Icons
-* CSS
-
-### Backend
-
-* Node.js
-* Express.js
-* Mongoose
-* JWT
-* Multer
-* PDF parsing libraries
-
-### AI & Data Service
-
-* Python
-* FastAPI
-* Uvicorn
-* Pandas
-* NumPy
-* Scikit-learn
-* PyTorch
-* yfinance
-* Google GenAI SDK
-* Pytest
-
-### Database
-
-* MongoDB
-* MongoDB Atlas or local MongoDB
-
----
-
-# Running the Project
-
-## Requirements
-
-Make sure you have:
-
-* Node.js 18+
-* Python 3.10+
-* MongoDB
-* Git
-
----
-
-## 1. Start the Node.js Backend
-
-```powershell
-cd backend\api
-
-npm install
-
-# Configure your .env file
-# MONGODB_URI=...
-# JWT_SECRET=...
-
-npm start
-```
-
-The backend runs on:
-
-```text
-http://localhost:5000
+### 2.2 Ingestion & Deduplication Pipeline
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as Authenticated Client
+    participant Frontend as React SPA
+    participant Backend as Node.js Express API
+    participant Parser as Statement Parser Engine
+    participant DB as MongoDB Atlas Cluster
+
+    User->>Frontend: Upload Encrypted/Standard Bank PDF Statement
+    Frontend->>Backend: POST /api/transactions/upload (Multipart/Form-Data)
+    Backend->>Backend: Verify JWT Bearer Claims & Resolve Tenant Identity
+    Backend->>Parser: Stream Buffer to Statement Extraction Pipeline
+    Parser->>Parser: Extract Text Layers & Identify Bank Template (HDFC, SBI, ICICI, Axis, Kotak)
+    Parser->>Parser: Normalize Dates, Transaction Types, and UPI/Merchant Strings
+    Parser->>Parser: Compute Deterministic SHA-256 Hash for Each Line Item
+    Parser->>DB: Query Existing Hashes for Tenant
+    Parser->>Parser: Filter Out Duplicate Records (Idempotent Guarantee)
+    Parser->>DB: Bulk Write Verified Unique Transactions
+    Backend-->>Frontend: HTTP 201 (Ingested Count, Duplicates Skipped, Parsed Rows)
+    Frontend-->>User: Render Structured Ledger & Update Analytics Dashboard
 ```
 
 ---
 
-## 2. Start the Python Service
+## 3. Core Architectural Modules & Engineering Specifications
 
-```powershell
-cd ai-service
+### 3.1 Automated Bank Statement Parsing Engine
+- **Multi-Bank Template Adaptation**: Native layout parsers engineered for major commercial institutions (HDFC, State Bank of India, ICICI Bank, Axis Bank, Kotak Mahindra Bank, and generic ISO standard statements).
+- **Deterministic SHA-256 Idempotency**: Each transactional line item is processed into a deterministic string `(userId + date + amount + type + referenceNumber)` and hashed using SHA-256. Re-uploading identical or overlapping monthly statements results in zero duplicate writes.
+- **Entity Resolution & Categorization**: Rule-based heuristic pattern matching extracts normalized merchant identities from complex UPI strings (e.g., `UPI-SWIGGY-12345` -> `Swiggy`, Category: `Food & Dining`).
 
-python -m venv venv
+### 3.2 Algorithmic Multi-Pillar Financial Health Engine
+The platform calculates an objective composite Financial Health Score (0-100) based on four weighted quantitative dimensions:
+1. **Savings Discipline Pillar (40% Weight)**: Evaluates the net savings rate `((Inflow - Outflow) / Inflow * 100)`. Tiered benchmarks reward consistent accumulation above 30%.
+2. **Expense Velocity & Discretionary Outflow Pillar (25% Weight)**: Measures burn rate against income velocity, penalizing non-essential outflow spikes.
+3. **Liquidity Runway & Reserve Pillar (20% Weight)**: Assesses available liquid capital against average monthly operational expenditures to quantify survival runway (target: 6+ months).
+4. **Debt-to-Surplus Stability Pillar (15% Weight)**: Evaluates recurring fixed liabilities and EMI servicing burdens relative to gross disposable surplus.
 
-venv\Scripts\activate
+### 3.3 Quantitative Market Intelligence & Predictive Inference
+- **Real-Time Market Ingestion**: Integrates live tick and OHLCV market feeds via Yahoo Finance for Indian (NSE/BSE) and global equity instruments.
+- **Zero-Shot Time-Series Forecasting**: Machine learning statistical pipelines analyze trailing historical windows to model probabilistic price paths, expected return bands, directionality, and volatility metrics.
+- **Savings-Aware Position Sizing**: Translates user disposable surplus into actionable allocation brackets, matching risk profiles (Conservative, Moderate, Aggressive) with diversified market candidates.
 
-pip install -r requirements.txt
+### 3.4 Grounded Retrieval-Augmented Generation (RAG) AI Money Mentor
+- **Vector Knowledge Base**: Indexes curated financial engineering literature, risk management principles, and investment methodologies.
+- **Context Injection Pipeline**: Dynamic prompt construction combines vectorized knowledge retrieval with the user's live financial metadata (cash flow velocity, health score, category breakdown) to generate hallucination-free advisory responses.
+- **Google GenAI Client Integration**: Leverages Google Gemini models (`gemini-2.5-flash`, `gemini-2.0-flash`, `gemini-1.5-flash`) with automated fallback orchestration.
 
-python main.py
+### 3.5 Financial Education & Professional Certification Academy
+- **Comprehensive Curriculum**: 50 specialized course modules across 11 professional tracks (Cash Flow Mastery, Equity Analysis, Fixed Income, Derivatives, Tax Optimization, Portfolio Architecture).
+- **Proctored 100-Question Assessment Engine**: Real-time examination platform with algorithmic skill breakdown, timing controls, and tiered grading (Pass, Honors, Distinction).
+- **Cryptographically Verifiable Credentials**: Dynamic generation of ISO-formatted certificates and diplomas embedded with unique verification serial identifiers (`FEA-EARN-2026-XXXX-XXXX`).
+
+### 3.6 Multi-Tenant Isolation & Zero-Trust Security
+- **Strict Data Ownership**: All MongoDB queries are scoped strictly by authenticated `userId` extracted from validated JSON Web Tokens (JWT).
+- **Password Salting and Hashing**: Cryptographic password protection using `bcryptjs` with optimized cost factors.
+- **Stateless Bearer Authorization**: Protected API boundaries guarded by middleware interceptors validating JWT signatures and token expiration.
+
+---
+
+## 4. Technology Stack Matrix
+
+| Layer | Technologies & Libraries | Architectural Purpose |
+| :--- | :--- | :--- |
+| **Frontend UI/UX** | React 19, TypeScript, Vite, React Router 7, Zustand, Recharts, Lucide Icons | Client-side reactive Single Page Application |
+| **Styling & Design System** | Vanilla CSS3 Variables, Glassmorphism, Responsive Grid System | Cohesive visual design system |
+| **Backend API Gateway** | Node.js, Express.js 5, Mongoose 9, Multer, Helmet, Morgan, CORS | RESTful API routing, authentication, and database orchestration |
+| **AI / ML Microservice** | Python 3.11, FastAPI, Uvicorn, Pandas, NumPy, Scikit-Learn, yfinance | Asynchronous quantitative computation, predictive modeling, market data |
+| **Generative AI & LLM** | Google GenAI SDK (`google-genai`), Gemini 2.5/2.0/1.5 Flash Models | Context-grounded conversational mentor and stock reasoning |
+| **Database & Persistence** | MongoDB Atlas, Distributed Document Storage | Persistent multi-tenant storage for users, transactions, and certifications |
+| **Build & Infrastructure** | Render Cloud Platform (Static Sites, Node Web Services, Python Web Services) | Production hosting, automated CI/CD pipelines, edge CDN caching |
+
+---
+
+## 5. API Interface Specifications
+
+### 5.1 Authentication Subsystem (`/api/auth`)
+| Method | Endpoint | Description | Auth Required |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/auth/register` | Create a new user identity and return a signed JWT | No |
+| `POST` | `/api/auth/login` | Authenticate credentials and establish an authorized session | No |
+| `GET` | `/api/auth/me` | Fetch authenticated identity metadata and profile details | Yes (Bearer) |
+| `POST` | `/api/auth/reset-password` | Update account credentials via verified reset payload | No |
+
+### 5.2 Transaction & Ledger Subsystem (`/api/transactions`)
+| Method | Endpoint | Description | Auth Required |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/transactions` | Retrieve user transactions with sorting and pagination | Yes (Bearer) |
+| `POST` | `/api/transactions` | Record a single manual transactional entry | Yes (Bearer) |
+| `POST` | `/api/transactions/upload` | Ingest and parse PDF/CSV bank statements with deduplication | Yes (Bearer) |
+| `DELETE` | `/api/transactions/:id` | Remove a specified transaction with ownership verification | Yes (Bearer) |
+
+### 5.3 Academy & Certification Subsystem (`/api/academy`)
+| Method | Endpoint | Description | Auth Required |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/api/academy/progress` | Retrieve completed modules, XP, exam attempts, and certificates | Yes (Bearer) |
+| `POST` | `/api/academy/exam/submit` | Submit an official examination attempt and issue credentials | Yes (Bearer) |
+
+### 5.4 AI & Market Intelligence Subsystem (`FastAPI`)
+| Method | Endpoint | Description | Auth Required |
+| :--- | :--- | :--- | :--- |
+| `GET` | `/investment/quote/{symbol}` | Fetch real-time market quote and quality tags for a ticker | No |
+| `POST` | `/investment/live-predict` | Generate time-series predictive return bands for a symbol | No |
+| `POST` | `/ai/chat` | Query RAG-grounded AI Money Mentor with financial context | No |
+| `POST` | `/api/v1/ai/function-chat`| Gemini tool calling integration with real-time market tools | No |
+
+---
+
+## 6. Environment Configuration Schema
+
+### 6.1 Backend Web Service (`backend/api/.env`)
+```env
+PORT=10000
+NODE_ENV=production
+JWT_SECRET=your_secure_jwt_secret_key_here
+MONGODB_URI=mongodb+srv://<username>:<password>@cluster0.xxxx.mongodb.net/finmitra?retryWrites=true&w=majority
 ```
 
-The FastAPI service runs on:
+### 6.2 Python AI Microservice (`ai-service/.env`)
+```env
+PORT=8000
+HOST=0.0.0.0
+PYTHON_VERSION=3.11.9
+GEMINI_API_KEY=your_google_ai_studio_api_key
+MARKET_DATA_PROVIDER=yfinance
+RAG_VECTOR_STORE_PATH=./data/vectorstore
+RAG_COLLECTION_NAME=finmitra_knowledge
+RAG_TOP_K=5
+RAG_RERANK_TOP_K=3
+```
 
-```text
-http://127.0.0.1:8000
+### 6.3 Frontend Static Application (`frontend/.env`)
+```env
+VITE_API_URL=https://wallet-mate-backend.onrender.com/api
+VITE_AI_API_URL=https://wallet-mate-ai.onrender.com
 ```
 
 ---
 
-## 3. Start the Frontend
+## 7. Local Installation & Development Workflow
 
-```powershell
+### Prerequisites
+- Node.js 18.x or higher
+- Python 3.10 or 3.11
+- MongoDB instance (Local or MongoDB Atlas connection string)
+- Git
+
+### 7.1 Clone and Install Dependencies
+
+```bash
+# Clone the repository
+git clone https://github.com/1pruthvik/Wallet-mate.git
+cd Wallet-mate
+
+# Install Frontend dependencies
 cd frontend
-
 npm install
 
+# Install Backend dependencies
+cd ../backend/api
+npm install
+
+# Install Python AI Service dependencies
+cd ../../ai-service
+pip install -r requirements.txt
+```
+
+### 7.2 Running the Development Services
+
+```bash
+# Terminal 1: Launch Backend API (Port 5000)
+cd backend/api
+npm run dev
+
+# Terminal 2: Launch AI Service (Port 8000)
+cd ai-service
+uvicorn main:app --reload --host 0.0.0.0 --port 8000
+
+# Terminal 3: Launch React Frontend (Port 5173)
+cd frontend
 npm run dev
 ```
 
-The frontend will normally be available at:
-
-```text
-http://localhost:5173
-```
-
-Open the address in your browser to use FinMitra.
-
 ---
 
-# Testing
+## 8. Deployment Infrastructure & Verification
 
-### Frontend Build
+The application is deployed across Render's managed cloud infrastructure:
+- **Frontend**: Render Static Site with global edge CDN distribution and client-side SPA route rewriting (`/*` -> `/index.html`).
+- **Backend API**: Render Node.js Managed Web Service with automated health checking at `/api/health`.
+- **AI Service**: Render Python Managed Web Service with Uvicorn ASGI server and zero-downtime deployments.
+- **Database**: MongoDB Atlas multi-region cluster with automated backups and encryption at rest.
 
-```powershell
-cd frontend
-npm run build
-```
-
-### Python Tests
-
-```powershell
-cd ai-service
-
-venv\Scripts\pytest tests/
-```
-
----
-
-# Project Goal
-
-FinMitra brings together several parts of personal finance that are usually spread across different applications.
-
-Instead of only showing transactions or stock prices, the application connects:
-
-**Bank Data → Spending Analysis → Financial Health → Learning Recommendations → Investment Simulation**
-
-The project is mainly focused on making personal finance easier to understand and giving users a practical way to learn from their own financial data.
-
----
-
-# License
-
-This project is developed as a personal project. All rights reserved.
+Live Production URL: https://wallet-mate-frontend-wzty.onrender.com/
