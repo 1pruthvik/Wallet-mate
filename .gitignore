@@ -20,8 +20,9 @@ venv/
 *.joblib
 
 # Runtime RAG vectorstore & database cache
-data/
-data/*
+/data/
+ai-service/data/
+!frontend/src/data/
 
 # Build files
 dist/
