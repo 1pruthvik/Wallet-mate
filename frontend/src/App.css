@@ -2546,11 +2546,10 @@ button {
   .wm-tx-metric-divider {
     display: none;
   }
-  .wm-welcome-banner {
+  .wm-auth-footer-container {
     flex-direction: column;
     align-items: flex-start;
   }
-  .wm-auth-footer-container {
 }
 
 /* ==========================================================================
