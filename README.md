@@ -14,6 +14,27 @@ Personal financial management across modern economies is severely hindered by sy
 4. **Ungrounded Generic AI Advice**: Generalized conversational large language models hallucinate generic financial advice because they lack deterministic access to a user's isolated transactional ledger, verified financial knowledge bases, and live market quotes.
 
 **Wallet-Mate** addresses these challenges by delivering a decoupled, cloud-native microservices architecture. It combines deterministic PDF statement parsing, cryptographic data isolation, multi-pillar algorithmic financial scoring, real-time equity market forecasting, and Retrieval-Augmented Generation (RAG) via Google Gemini models.
+<img width="1600" height="761" alt="WhatsApp Image 2026-08-25 at 13 55 21 (1)" src="https://github.com/user-attachments/assets/1ca9062a-3110-46d1-b7e7-353e8e914bf8" />
+
+<img width="1600" height="756" alt="WhatsApp Image 2026-08-25 at 14 00 50" src="https://github.com/user-attachments/assets/78180e64-e81c-4287-bade-eba9ef3992fa" />
+
+<img width="1600" height="753" alt="WhatsApp Image 2026-08-25 at 14 01 18" src="https://github.com/user-attachments/assets/958a46db-a368-44e2-a599-8f7997e0f1c9" />
+<img width="1600" height="757" alt="WhatsApp Image 2026-08-25 at 14 02 14 (1)" src="https://github.com/user-attachments/assets/7a09d1d8-07be-403e-a0c4-8cdf85eb30b0" />
+
+<img width="1600" height="757" alt="WhatsApp Image 2026-08-25 at 21 23 51" src="https://github.com/user-attachments/assets/91812f6d-0a2a-44f7-b6ab-78bf26b08631" />
+
+<img width="1882" height="714" alt="Screenshot 2026-08-26 010545" src="https://github.com/user-attachments/assets/f47bffd5-a5b0-444b-a9f7-2ee24cda7d8a" />
+
+
+
+website
+https://wallet-mate-frontend-wzty.onrender.com
+
+
+
+
+
+
 
 ---
 
