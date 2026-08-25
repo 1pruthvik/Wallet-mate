@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "cd frontend && npm install && npm run build",
+    "build": "cd frontend && npm install --include=dev && npm run build",
     "start": "node backend/api/src/server.js",
     "dev": "cd frontend && npm run dev"
   },
@@ -17,6 +17,8 @@
     "mongoose": "^9.9.3",
     "morgan": "^1.11.0",
     "multer": "^2.2.0",
-    "pdf-parse": "^2.4.5"
+    "pdf-parse": "^2.4.5",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.0"
   }
 }
