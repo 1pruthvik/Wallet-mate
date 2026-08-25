@@ -7,6 +7,7 @@ import {
     type ProfessionalTier
 } from "../data/earningsCertificationData";
 import { useAuthStore } from "../store/useAuthStore";
+import apiClient from "../api/client";
 
 export interface CourseProgressRecord {
     courseId: string;
@@ -123,32 +124,25 @@ export function useEarningsAcademy() {
         const fetchBackendProgress = async () => {
             if (!token) return;
             try {
-                const res = await fetch("http://localhost:5000/api/academy/progress", {
-                    headers: {
-                        Authorization: `Bearer ${token}`
-                    }
-                });
-                if (res.ok) {
-                    const json = await res.json();
-                    if (json.success && json.data) {
-                        setState(prev => ({
-                            ...prev,
-                            courses: json.data.courses || prev.courses,
-                            certificates: json.data.certificates || prev.certificates,
-                            diplomas: json.data.diplomas || prev.diplomas,
-                            examAttempts: json.data.examAttempts || prev.examAttempts,
-                            tier: json.data.tier || prev.tier,
-                            totalXP: json.data.totalXP ?? prev.totalXP,
-                            studyStreakDays: json.data.studyStreakDays ?? prev.studyStreakDays,
-                            grandCapstone: json.data.grandCapstone || prev.grandCapstone
-                        }));
-                    }
+                const res = await apiClient.get("/academy/progress");
+                if (res.data && res.data.success && res.data.data) {
+                    const data = res.data.data;
+                    setState(prev => ({
+                        ...prev,
+                        courses: data.courses || prev.courses,
+                        certificates: data.certificates || prev.certificates,
+                        diplomas: data.diplomas || prev.diplomas,
+                        examAttempts: data.examAttempts || prev.examAttempts,
+                        tier: data.tier || prev.tier,
+                        totalXP: data.totalXP ?? prev.totalXP,
+                        studyStreakDays: data.studyStreakDays ?? prev.studyStreakDays,
+                        grandCapstone: data.grandCapstone || prev.grandCapstone
+                    }));
                 }
-            } catch {
-                // Backend might be offline; local state is preserved
+            } catch (err) {
+                // Offline fallback - use localStorage state
             }
         };
-
         fetchBackendProgress();
     }, [token]);
 
@@ -420,23 +414,16 @@ export function useEarningsAcademy() {
 
         // Background sync to server if token available
         if (token) {
-            fetch("http://localhost:5000/api/academy/exam/submit", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    courseId: course.id,
-                    courseTitle: course.title,
-                    pathId: course.pathId,
-                    pathTitle: course.pathTitle,
-                    score,
-                    timeSpentSeconds,
-                    skillBreakdown,
-                    skillsValidated: course.skills,
-                    isCapstone: false
-                })
+            apiClient.post("/academy/exam/submit", {
+                courseId: course.id,
+                courseTitle: course.title,
+                pathId: course.pathId,
+                pathTitle: course.pathTitle,
+                score,
+                timeSpentSeconds,
+                skillBreakdown,
+                skillsValidated: course.skills,
+                isCapstone: false
             }).catch(() => {});
         }
 

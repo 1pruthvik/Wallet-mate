@@ -1,10 +1,18 @@
 import axios from "axios";
 
-const apiClient = axios.create({
-    baseURL:
-        import.meta.env.VITE_API_URL ||
-        "http://localhost:5000/api",
+const getApiBaseUrl = () => {
+    let url = import.meta.env.VITE_API_URL || "http://localhost:5000/api";
+    // Strip trailing slashes
+    url = url.trim().replace(/\/+$/, "");
+    // If the user provided root domain without /api, append /api
+    if (!url.endsWith("/api")) {
+        url = `${url}/api`;
+    }
+    return url;
+};
 
+const apiClient = axios.create({
+    baseURL: getApiBaseUrl(),
     headers: {
         "Content-Type": "application/json",
     },
