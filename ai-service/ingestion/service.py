@@ -30,16 +30,20 @@ class ManualTransactionProvider:
     def create_manual_transaction(self, user_id: str, data: Dict[str, Any]) -> Transaction:
         merchant = data.get("merchant", "Manual Entry")
         category = data.get("category") or categorize_transaction(merchant, description=data.get("description", ""))
+        amount_val = float(data.get("amount", 0.0))
+        date_val = str(data.get("date", datetime.now().strftime("%Y-%m-%d")))
+        raw_key = f"{user_id}_{amount_val}_{date_val}_{merchant}"
+        txn_id = f"manual_{hashlib.md5(raw_key.encode()).hexdigest()[:12]}"
 
         txn = Transaction(
-            transaction_id=f"manual_{hashlib.md5(f'{user_id}_{data.get('amount')}_{data.get('date')}_{merchant}'.encode()).hexdigest()[:12]}",
+            transaction_id=txn_id,
             user_id=user_id,
-            amount=float(data.get("amount", 0.0)),
+            amount=amount_val,
             transaction_type=data.get("transaction_type", "expense"),
             merchant=merchant,
             category=category,
             channel=data.get("channel", "Manual"),
-            date=str(data.get("date", datetime.now().strftime("%Y-%m-%d"))),
+            date=date_val,
             description=data.get("description", "Manual transaction"),
             reference_number=data.get("reference_number"),
             source="manual",

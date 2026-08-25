@@ -153,7 +153,8 @@ class GmailDataProvider:
         if ref_match:
             ref_num = ref_match.group(1).strip()
 
-        txn_id = f"gmail_{message.get('id', hashlib.md5(f'{user_id}_{amount}_{date_str}'.encode()).hexdigest()[:12])}"
+        fallback_id = hashlib.md5(f"{user_id}_{amount}_{date_str}".encode()).hexdigest()[:12]
+        txn_id = f"gmail_{message.get('id', fallback_id)}"
 
         return Transaction(
             transaction_id=txn_id,
