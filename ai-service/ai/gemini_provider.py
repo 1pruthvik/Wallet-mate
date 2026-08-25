@@ -21,7 +21,7 @@ class GeminiProvider(AIProvider):
 
     def __init__(self, api_key: Optional[str] = None, model_name: Optional[str] = None):
         self.api_key = api_key or os.getenv("GEMINI_API_KEY")
-        self.model_name = model_name or os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")
+        self.model_name = model_name or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
         self._fallback = MockAIProvider()
         self._client = None
 
@@ -55,7 +55,7 @@ class GeminiProvider(AIProvider):
         if not self._client:
             raise RuntimeError("Configuration Error: Gemini client is not initialized or GEMINI_API_KEY is missing.")
 
-        candidate_models = [self.model_name, "gemini-3.5-flash-lite", "gemini-3.5-flash", "gemini-flash-latest"]
+        candidate_models = [self.model_name, "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
         seen_models = set()
 
         for model in candidate_models:
