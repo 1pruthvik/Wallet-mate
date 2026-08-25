@@ -1,164 +1,383 @@
-# 💎 FINMITRA — Real-Time Personal Financial Intelligence & Education Academy
+# FinMitra — Personal Finance Management Platform
 
-**FinMitra** is a full-stack, data-driven personal financial intelligence ecosystem. It integrates real-time bank statement diagnostics, algorithmic cashflow evaluation, live Indian stock market streaming, grounded Gemini AI investment advising, and a personalized Financial Education Academy.
+FinMitra is a personal finance application that helps users understand their spending, savings, investments, and overall financial health in one place.
+
+The system can import bank statements, analyze transactions, calculate financial health metrics, show market prices, simulate stock trading, and provide financial learning content based on the user's financial situation.
+
+The main goal is simple: **help users understand where their money is going and make better financial decisions.**
 
 ---
 
-## 🌟 Architectural Overview
+## Project Architecture
 
-FinMitra follows a decoupled microservices architecture designed for security, real-time performance, and user isolation:
+FinMitra is split into three main parts:
 
 ```text
-               ┌─────────────────────────────────────────┐
-               │    React + Vite Frontend (Port 5173)    │
-               │      Dashboard, Health Engine,          │
-               │    Trading Simulator, Academy, Mentor   │
-               └────────────────────┬────────────────────┘
-                                    │
-               ┌────────────────────┴────────────────────┐
-               │                                         │
- ┌─────────────▼─────────────┐             ┌─────────────▼─────────────┐
- │ Node/Express API Gateway  │             │ Python FastAPI AI Engine  │
- │        (Port 5000)        │             │        (Port 8000)        │
- │  Auth, User Accounts,     │             │ Health Diagnostics,       │
- │  MongoDB Transactions,    │             │ WebSocket Market Stream,  │
- │  PDF Bank Statement Ingest│             │ Grounded Gemini Function  │
- └─────────────┬─────────────┘             └───────────────────────────┘
-               │
- ┌─────────────▼─────────────┐
- │     MongoDB Database      │
- │  Users & Transactions     │
- └───────────────────────────┘
+                ┌──────────────────────────────────┐
+                │       React + Vite Frontend      │
+                │                                  │
+                │ Dashboard | Health | Trading     │
+                │ Academy | Mentor | Profile       │
+                └────────────────┬─────────────────┘
+                                 │
+                    ┌────────────┴────────────┐
+                    │                         │
+          ┌─────────▼─────────┐     ┌────────▼─────────┐
+          │ Node.js / Express │     │ Python / FastAPI │
+          │                   │     │                  │
+          │ Authentication    │     │ Financial Health │
+          │ User Management   │     │ Market Data      │
+          │ Transactions      │     │ AI Features      │
+          │ PDF Processing    │     │                  │
+          └─────────┬─────────┘     └──────────────────┘
+                    │
+            ┌───────▼────────┐
+            │    MongoDB     │
+            │                │
+            │ Users          │
+            │ Transactions   │
+            │ Portfolio      │
+            └────────────────┘
 ```
 
----
+### Frontend
 
-## 🚀 Key Modules & System Features
+Built using React, Vite and TypeScript. It provides the main interface where users can view their financial data, health score, portfolio, learning progress and other features.
 
-### 1. 📊 Dynamic Financial Health Engine
-- **8 Financial Pillars (100-Point Model)**:
-  1. *Savings & Accumulation* (25 pts)
-  2. *Expense Control* (20 pts)
-  3. *Spending Balance* (15 pts)
-  4. *Cashflow Buffer* (15 pts)
-  5. *Liquidity & Safety Net* (10 pts)
-  6. *Debt & Obligations* (5 pts)
-  7. *Income Stability* (5 pts)
-  8. *Goal Alignment* (5 pts)
-- **7 Hero KPIs**: Monthly Surplus, Savings Rate, Expense Ratio, Active Transactions, Average Daily Burn Rate, Emergency Runway (Months), Net Cashflow Trend.
-- **Spending Taxonomy & 50/30/20 Benchmark**: Real-time evaluation of Needs (≤50%), Wants (≤30%), and Surplus Savings (≥20%).
-- **10 Financial Constraints Engine**: Automated threshold rule evaluations (`OK`, `WATCH`, `BREACH`).
-- **Zero Fake Data Policy**: 100% calculated from the logged-in user's actual MongoDB transactions.
+### Node.js Backend
 
-### 2. 🎓 Financial Education Academy
-- **11 Learning Paths**: Money Foundations, Cashflow Mastery, Budgeting Systems, Transaction Intelligence, Emergency Funds, Debt & Credit, Saving Systems, Investing Fundamentals, Tax-Aware Money, Behavioral Finance, Wealth & Financial Independence.
-- **24 Launch Lessons**: Includes 60-second summary, learning objectives, core text, formula callout, ₹ Indian scenarios, Do/Don't lists, 3–5 MCQ quizzes (80%+ pass requirement for Mastered status), and "Apply to My Money" actions (+25 XP).
-- **Personalized Recommendations Engine**: Tied directly to Financial Health Engine signals (e.g. low savings rate → *Pay Yourself First*; high EMI → *DTI & Debt Avalanche*; discretionary excess → *Needs vs Wants* & *48-Hour Cooling Rule*).
-- **Interactive Financial Tools Suite**: 5 embedded calculators (50/30/20, Emergency Fund, SIP & Compound Growth, DTI Ratio, 48-Hour Impulse Purchase Delay).
-- **Searchable Glossary & Formula Library**: 30+ A-Z terms and 10 essential financial formulas.
+The Express backend handles authentication, users, transactions, bank statement uploads and communication with MongoDB.
 
-### 3. 📈 Real-Time Market Streaming & Trading Simulator
-- **Live WebSocket Market Feed**: Full-duplex WebSocket stream broadcasting live price updates for 20 top Indian equities in INR (₹) with real-time price changes.
-- **Gemini AI Stock Advisor**: Grounded Gemini function calling analyzing cash surplus, savings rate, and portfolio balance to recommend stock allocations.
-- **Cash Surplus Synchronization**: Automatically syncs bank statement savings surplus into available trading cash balance.
-- **Direct Action Buttons**: Instant Buy & Sell trading execution with portfolio holding trackers.
+### Python AI Service
 
-### 4. 📄 Bank Statement PDF Parser
-- Automated ingestion of bank statement PDFs.
-- Intelligent transaction extraction, category normalization, and self-transfer detection to prevent double-counting.
+The FastAPI service handles the more calculation-heavy and AI-related parts of the application, including financial health calculations, market data and Gemini-based analysis.
+
+### Database
+
+MongoDB stores user accounts, transactions and portfolio-related information.
 
 ---
 
-## 💻 Tech Stack
+# Main Features
 
-- **Frontend**: React 18, Vite, TypeScript, Lucide Icons, CSS Design System (Light Theme).
-- **Node Backend**: Express.js, Mongoose, JWT Authentication, Multer, PDF Parser.
-- **Python AI Engine**: FastAPI, Uvicorn, Pytest, Pandas, NumPy, Scikit-Learn, PyTorch, YFinance, Google GenAI SDK (Gemini Grounding).
-- **Database**: MongoDB (Local or Atlas).
+## 1. Financial Health Dashboard
+
+FinMitra calculates a financial health score using eight areas:
+
+1. Savings & Accumulation — 25 points
+2. Expense Control — 20 points
+3. Spending Balance — 15 points
+4. Cashflow Buffer — 15 points
+5. Liquidity & Safety Net — 10 points
+6. Debt & Obligations — 5 points
+7. Income Stability — 5 points
+8. Goal Alignment — 5 points
+
+This gives the user a score out of 100 and shows which areas are doing well and which areas need attention.
+
+### Dashboard Metrics
+
+The dashboard includes:
+
+* Monthly surplus
+* Savings rate
+* Expense ratio
+* Number of transactions
+* Average daily spending
+* Emergency fund runway
+* Net cashflow trend
+
+The calculations are based on the transactions available for the logged-in user rather than using predefined demo numbers.
+
+### Spending Analysis
+
+Transactions are grouped into categories such as:
+
+* Needs
+* Wants
+* Savings
+
+The application also compares spending against the commonly used **50/30/20 budgeting guideline**.
 
 ---
 
-## 🛠️ Quickstart Guide
+## 2. Financial Education Academy
 
-### Prerequisites
-- **Node.js**: v18.0.0 or higher
-- **Python**: 3.10 or higher
-- **MongoDB**: Active local instance (`mongodb://localhost:27017`) or Atlas connection string
+The Academy is designed to help users learn personal finance while using the application.
+
+It currently contains 11 learning areas:
+
+* Money Foundations
+* Cashflow Mastery
+* Budgeting Systems
+* Transaction Intelligence
+* Emergency Funds
+* Debt & Credit
+* Saving Systems
+* Investing Fundamentals
+* Tax-Aware Money
+* Behavioral Finance
+* Wealth & Financial Independence
+
+There are 24 initial lessons covering practical topics such as budgeting, emergency funds, debt management, saving and investing.
+
+Each lesson can include:
+
+* Short summary
+* Learning objectives
+* Explanation of the topic
+* Relevant formulas
+* Indian examples using ₹
+* Do/Don't recommendations
+* Multiple-choice questions
+* Practical actions
+
+Users need to score at least 80% in a lesson quiz to mark it as mastered.
+
+Completing practical actions can also give the user XP and contribute to their learning progress.
 
 ---
 
-### Step 1: Clone Repository & Setup Backend API Gateway
+## 3. Personalized Learning Recommendations
+
+The Academy is connected to the Financial Health Engine.
+
+This means the application can suggest learning topics based on the user's financial data.
+
+For example:
+
+| Financial Situation         | Suggested Topic                       |
+| --------------------------- | ------------------------------------- |
+| Low savings rate            | Pay Yourself First                    |
+| High EMI/debt burden        | Debt-to-Income Ratio & Debt Avalanche |
+| High discretionary spending | Needs vs Wants                        |
+| Frequent impulse purchases  | 48-Hour Cooling Rule                  |
+
+The idea is to make the learning content more relevant instead of showing the same lessons to every user.
+
+---
+
+# 4. Financial Calculators
+
+FinMitra includes several basic financial calculators:
+
+* 50/30/20 Budget Calculator
+* Emergency Fund Calculator
+* SIP & Compound Growth Calculator
+* Debt-to-Income Ratio Calculator
+* 48-Hour Impulse Purchase Calculator
+
+There is also a searchable glossary containing common financial terms and formulas.
+
+---
+
+# 5. Market Data & Trading Simulator
+
+FinMitra also includes a stock market section where users can experiment with investing without using real money.
+
+The application receives market price updates through WebSockets and displays prices for selected Indian stocks.
+
+Users can:
+
+* View stock prices
+* Buy stocks in the simulator
+* Sell stocks
+* Track their holdings
+* View their simulated portfolio
+* Use their calculated surplus as the basis for simulated trading capital
+
+### AI Stock Analysis
+
+Gemini is used to provide AI-based analysis using information available to the application.
+
+The AI can consider factors such as:
+
+* User's savings rate
+* Available cash surplus
+* Existing portfolio
+* Portfolio allocation
+
+The trading module is intended as a **simulation and learning feature**, not as a platform for executing real stock trades.
+
+---
+
+# 6. Bank Statement Processing
+
+Users can upload supported bank statement PDFs.
+
+The backend extracts transaction information and converts it into a format that can be stored and analyzed by the application.
+
+The processing pipeline includes:
+
+```text
+Bank Statement PDF
+        ↓
+PDF Text Extraction
+        ↓
+Transaction Detection
+        ↓
+Date / Amount / Description
+        ↓
+Category Assignment
+        ↓
+Self-Transfer Detection
+        ↓
+MongoDB
+        ↓
+Financial Analysis
+```
+
+Self-transfers are identified where possible so that moving money between a user's own accounts does not incorrectly appear as income or additional spending.
+
+---
+
+# Technology Stack
+
+### Frontend
+
+* React 18
+* Vite
+* TypeScript
+* Lucide Icons
+* CSS
+
+### Backend
+
+* Node.js
+* Express.js
+* Mongoose
+* JWT
+* Multer
+* PDF parsing libraries
+
+### AI & Data Service
+
+* Python
+* FastAPI
+* Uvicorn
+* Pandas
+* NumPy
+* Scikit-learn
+* PyTorch
+* yfinance
+* Google GenAI SDK
+* Pytest
+
+### Database
+
+* MongoDB
+* MongoDB Atlas or local MongoDB
+
+---
+
+# Running the Project
+
+## Requirements
+
+Make sure you have:
+
+* Node.js 18+
+* Python 3.10+
+* MongoDB
+* Git
+
+---
+
+## 1. Start the Node.js Backend
 
 ```powershell
-# Navigate to backend directory
 cd backend\api
 
-# Install dependencies
 npm install
 
-# Setup environment file (.env)
-# Verify MONGODB_URI and JWT_SECRET are set
+# Configure your .env file
+# MONGODB_URI=...
+# JWT_SECRET=...
 
-# Start Express API Server (Runs on http://localhost:5000)
 npm start
 ```
 
+The backend runs on:
+
+```text
+http://localhost:5000
+```
+
 ---
 
-### Step 2: Setup Python AI Service & Market Engine
+## 2. Start the Python Service
 
 ```powershell
-# Navigate to AI service directory
 cd ai-service
 
-# Create virtual environment
 python -m venv venv
 
-# Activate virtual environment
 venv\Scripts\activate
 
-# Install Python requirements
 pip install -r requirements.txt
 
-# Start FastAPI AI Service (Runs on http://127.0.0.1:8000)
 python main.py
 ```
 
+The FastAPI service runs on:
+
+```text
+http://127.0.0.1:8000
+```
+
 ---
 
-### Step 3: Setup & Run React Frontend
+## 3. Start the Frontend
 
 ```powershell
-# Navigate to frontend directory
 cd frontend
 
-# Install Node dependencies
 npm install
 
-# Start Vite Development Server (Runs on http://localhost:5173)
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173) in your browser to access **FinMitra**.
+The frontend will normally be available at:
+
+```text
+http://localhost:5173
+```
+
+Open the address in your browser to use FinMitra.
 
 ---
 
-## 🧪 Running Tests
+# Testing
 
-### Frontend Build & Type Check
+### Frontend Build
+
 ```powershell
 cd frontend
 npm run build
 ```
 
-### Python AI & Health Engine Tests
+### Python Tests
+
 ```powershell
 cd ai-service
+
 venv\Scripts\pytest tests/
 ```
 
 ---
 
-## 📜 License
+# Project Goal
 
-This project is personal intellectual property developed for financial intelligence management. All rights reserved.
+FinMitra brings together several parts of personal finance that are usually spread across different applications.
+
+Instead of only showing transactions or stock prices, the application connects:
+
+**Bank Data → Spending Analysis → Financial Health → Learning Recommendations → Investment Simulation**
+
+The project is mainly focused on making personal finance easier to understand and giving users a practical way to learn from their own financial data.
+
+---
+
+# License
+
+This project is developed as a personal project. All rights reserved.
